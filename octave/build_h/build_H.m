@@ -2,9 +2,50 @@
 % This script builds the full parity-check matrix H, including the last
 % punctured M columns defined by Section 7.4.2.5.
 
-% Manual parameter selection.
-rate = '1/2';
-block_length = 16384;
+% Interactive selection among the 9 supported configurations.
+fprintf('Select CCSDS LDPC configuration:\n');
+fprintf('  1. rate 1/2, block length 1024\n');
+fprintf('  2. rate 1/2, block length 4096\n');
+fprintf('  3. rate 1/2, block length 16384\n');
+fprintf('  4. rate 2/3, block length 1024\n');
+fprintf('  5. rate 2/3, block length 4096\n');
+fprintf('  6. rate 2/3, block length 16384\n');
+fprintf('  7. rate 4/5, block length 1024\n');
+fprintf('  8. rate 4/5, block length 4096\n');
+fprintf('  9. rate 4/5, block length 16384\n');
+
+selection = input('Enter a number from 1 to 9: ');
+
+if selection == 1
+  rate = '1/2';
+  block_length = 1024;
+elseif selection == 2
+  rate = '1/2';
+  block_length = 4096;
+elseif selection == 3
+  rate = '1/2';
+  block_length = 16384;
+elseif selection == 4
+  rate = '2/3';
+  block_length = 1024;
+elseif selection == 5
+  rate = '2/3';
+  block_length = 4096;
+elseif selection == 6
+  rate = '2/3';
+  block_length = 16384;
+elseif selection == 7
+  rate = '4/5';
+  block_length = 1024;
+elseif selection == 8
+  rate = '4/5';
+  block_length = 4096;
+elseif selection == 9
+  rate = '4/5';
+  block_length = 16384;
+else
+  error('Invalid selection. Choose an integer from 1 to 9.');
+end
 
 % Section 7.4 supports:
 %   rates: 1/2, 2/3, 4/5
@@ -240,3 +281,7 @@ print(image_filename, '-dpng');
 close(gcf);
 
 fprintf('Saved H plot to %s\n', image_filename);
+
+mat_filename = sprintf('H_%s_%d.mat', strrep(rate, '/', '_'), block_length);
+save(mat_filename, 'H', 'rate', 'block_length', 'M');
+fprintf('Saved H matrix to %s\n', mat_filename);

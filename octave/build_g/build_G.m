@@ -210,10 +210,20 @@ if any(syndrome(:))
   error('Generator verification failed: H * G'' is not zero over GF(2).');
 end
 
+image_filename = sprintf('G_%s_%d.png', strrep(rate, '/', '_'), block_length);
+figure('visible', 'off');
+spy(G, 4);
+title(sprintf('CCSDS LDPC G, rate %s, block length %d', rate, block_length));
+xlabel('Column');
+ylabel('Row');
+print(image_filename, '-dpng');
+close(gcf);
+
 mat_filename = sprintf('G_%s_%d.mat', strrep(rate, '/', '_'), block_length);
 save(mat_filename, 'G', 'rate', 'block_length', 'M');
 
 fprintf('Built CCSDS LDPC G for rate %s, block length %d.\n', rate, block_length);
 fprintf('G size: %d x %d\n', rows(G), columns(G));
 fprintf('Loaded H from %s\n', h_path);
+fprintf('Saved G plot to %s\n', image_filename);
 fprintf('Saved G matrix to %s\n', mat_filename);

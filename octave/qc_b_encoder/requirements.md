@@ -12,13 +12,16 @@ The implementation shall be:
 
 The script shall encode using a QC block-based approach rather than a generic bit-dependency approach.
 
+The algortigm is described in document: CCSDS 131.1-O-1 , section 3.4
+If needed the pdf is in the pdf folder one upper.
+
 ---
 
 ## 2. Main Goal
 
 The goal is to build an LDPC encoder script that:
 
-* uses the quasi-cyclic block structure of the CCSDS code
+* uses the structure described in the ccsds document
 * is structured in a way that is relevant for future FPGA or RTL implementation
 * generates a codeword
 * validates the generated codeword using the parity-check matrix `H`
@@ -74,9 +77,6 @@ The menu shall allow selection among all available combinations of:
 The encoding shall be implemented using a QC block-based method.
 
 This means the script should:
-
-* exploit the quasi-cyclic block structure of the CCSDS LDPC code
-* work with block-level relationships where possible
 * be organized in a way that is meaningful for an FPGA-oriented implementation
 
 The implementation should favor:
@@ -90,6 +90,14 @@ The implementation should avoid relying on:
 * a generator matrix `G`
 * a generic dense matrix encoding method
 * a purely bit-dependency-list style approach when a QC block representation is available
+
+### Important Architectural Direction
+
+If the implementation is pushed in the right direction, the biggest architectural decision is:
+
+*  Constants should be precalculated once and stored in a seperate file
+
+This is considered the clean FPGA-oriented option.
 
 ---
 

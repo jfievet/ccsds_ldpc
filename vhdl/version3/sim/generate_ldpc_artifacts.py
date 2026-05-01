@@ -418,7 +418,15 @@ def write_vhdl_package(package_name: str, body: str, output_path: Path, use_conf
     output_path.write_text(package_text, encoding="ascii")
 
 
-def write_config_package(constants: Constants, output_path: Path, package_name: str, offset_width: int, message_index_width: int, parity_row_width: int) -> None:
+def write_config_package(
+    constants: Constants,
+    output_path: Path,
+    package_name: str,
+    offset_width: int,
+    message_index_width: int,
+    codeword_index_width: int,
+    parity_row_width: int,
+) -> None:
     body = (
         f"  constant LDPC_RATE_NUMERATOR : natural := {constants.rate_numerator};\n"
         f"  constant LDPC_RATE_DENOMINATOR : natural := {constants.rate_denominator};\n"
@@ -429,6 +437,7 @@ def write_config_package(constants: Constants, output_path: Path, package_name: 
         f"  constant LDPC_TOTAL_LENGTH : natural := {constants.total_length};\n"
         f"  constant LDPC_OFFSET_WIDTH : natural := {offset_width};\n"
         f"  constant LDPC_MESSAGE_INDEX_WIDTH : natural := {message_index_width};\n"
+        f"  constant LDPC_CODEWORD_INDEX_WIDTH : natural := {codeword_index_width};\n"
         f"  constant LDPC_ROW_INDEX_WIDTH : natural := {parity_row_width};\n"
     )
     write_vhdl_package(package_name, body, output_path, False)
@@ -445,6 +454,7 @@ def write_split_vhdl_tables(constants: Constants, output_dir: Path, output_prefi
 
     offset_width = uint_width(max(len(a_values), len(b_values), len(p1_values), len(s2_values), len(s4_values), len(fwd_values), len(bwd_values)))
     message_index_width = uint_width(constants.k - 1)
+    codeword_index_width = uint_width(constants.n - 1)
     parity_row_width = uint_width(constants.m - 1)
 
     config_package = f"{output_prefix}_config_pkg"
@@ -456,7 +466,7 @@ def write_split_vhdl_tables(constants: Constants, output_dir: Path, output_prefi
         output_dir / f"{output_prefix}_solver_tables_pkg.vhd",
     ]
 
-    write_config_package(constants, package_paths[0], config_package, offset_width, message_index_width, parity_row_width)
+    write_config_package(constants, package_paths[0], config_package, offset_width, message_index_width, codeword_index_width, parity_row_width)
 
     a_body = "".join(
         [

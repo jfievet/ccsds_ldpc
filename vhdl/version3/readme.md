@@ -4,3 +4,4 @@
 
 Version 3 update:
 Replaced message register by a ram
+Replaced output register by a ram

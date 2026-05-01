@@ -10,13 +10,15 @@ use work.ldpc_encoder_1k_1_2_solver_tables_pkg.all;
 
 entity ldpc_parity_core is
   port (
-    clock_i          : in  std_logic;
-    reset_i          : in  std_logic;
-    start_i          : in  std_logic;
+    clock_i           : in  std_logic;
+    reset_i           : in  std_logic;
+    start_i           : in  std_logic;
     message_rd_addr_o : out std_logic_vector(LDPC_MESSAGE_INDEX_WIDTH - 1 downto 0);
     message_rd_data_i : in  std_logic;
-    codeword_bits_o  : out std_logic_vector(0 to LDPC_N - 1);
-    codeword_valid_o : out std_logic
+    codeword_wr_en_o  : out std_logic;
+    codeword_wr_addr_o : out std_logic_vector(LDPC_CODEWORD_INDEX_WIDTH - 1 downto 0);
+    codeword_wr_data_o : out std_logic;
+    codeword_valid_o  : out std_logic
   );
 end entity ldpc_parity_core;
 
@@ -51,7 +53,6 @@ architecture rtl of ldpc_parity_core is
   signal parity_1          : std_logic_vector(0 to LDPC_M - 1) := (others => '0');
   signal parity_2          : std_logic_vector(0 to LDPC_M - 1) := (others => '0');
   signal parity_3          : std_logic_vector(0 to LDPC_M - 1) := (others => '0');
-  signal codeword_bits     : std_logic_vector(0 to LDPC_N - 1) := (others => '0');
   signal row_index         : natural range 0 to LDPC_M - 1 := 0;
   signal pivot_index       : natural range 0 to LDPC_M - 1 := 0;
   signal dependency_index  : natural := 0;
@@ -59,8 +60,8 @@ architecture rtl of ldpc_parity_core is
   signal dependency_accum  : std_logic := '0';
   signal swap_row_index    : natural range 0 to LDPC_M - 1 := 0;
   signal message_load_index : natural range 0 to LDPC_K - 1 := 0;
+  signal codeword_write_index : natural range 0 to LDPC_N - 1 := 0;
 begin
-  codeword_bits_o <= codeword_bits;
 
   process (clock_i)
   begin
@@ -74,7 +75,6 @@ begin
         parity_1         <= (others => '0');
         parity_2         <= (others => '0');
         parity_3         <= (others => '0');
-        codeword_bits    <= (others => '0');
         row_index        <= 0;
         pivot_index      <= 0;
         dependency_index <= 0;
@@ -82,9 +82,14 @@ begin
         dependency_accum <= '0';
         swap_row_index   <= 0;
         message_load_index <= 0;
+        codeword_write_index <= 0;
         message_rd_addr_o <= (others => '0');
+        codeword_wr_en_o <= '0';
+        codeword_wr_addr_o <= (others => '0');
+        codeword_wr_data_o <= '0';
         codeword_valid_o <= '0';
       else
+        codeword_wr_en_o <= '0';
         codeword_valid_o <= '0';
 
         case state is
@@ -99,6 +104,7 @@ begin
               parity_1 <= (others => '0');
               parity_2 <= (others => '0');
               parity_3 <= (others => '0');
+              codeword_write_index <= 0;
               row_index <= 0;
               state <= load_message_wait_s;
             end if;
@@ -283,6 +289,7 @@ begin
             else
               parity_1(row_index) <= dependency_accum;
               if row_index = LDPC_M - 1 then
+                codeword_write_index <= 0;
                 state <= assemble_codeword_s;
               else
                 row_index <= row_index + 1;
@@ -291,11 +298,23 @@ begin
             end if;
 
           when assemble_codeword_s =>
-            codeword_bits(0 to LDPC_K - 1) <= message_bits_reg;
-            codeword_bits(LDPC_K to LDPC_K + LDPC_M - 1) <= parity_1;
-            codeword_bits(LDPC_K + LDPC_M to LDPC_N - 1) <= parity_2;
-            codeword_valid_o <= '1';
-            state <= idle_s;
+            codeword_wr_en_o <= '1';
+            codeword_wr_addr_o <= std_logic_vector(to_unsigned(codeword_write_index, LDPC_CODEWORD_INDEX_WIDTH));
+
+            if codeword_write_index < LDPC_K then
+              codeword_wr_data_o <= message_bits_reg(codeword_write_index);
+            elsif codeword_write_index < LDPC_K + LDPC_M then
+              codeword_wr_data_o <= parity_1(codeword_write_index - LDPC_K);
+            else
+              codeword_wr_data_o <= parity_2(codeword_write_index - LDPC_K - LDPC_M);
+            end if;
+
+            if codeword_write_index = LDPC_N - 1 then
+              codeword_valid_o <= '1';
+              state <= idle_s;
+            else
+              codeword_write_index <= codeword_write_index + 1;
+            end if;
         end case;
       end if;
     end if;

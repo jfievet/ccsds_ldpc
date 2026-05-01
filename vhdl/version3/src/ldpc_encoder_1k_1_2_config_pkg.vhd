@@ -11,5 +11,6 @@ package ldpc_encoder_1k_1_2_config_pkg is
   constant LDPC_TOTAL_LENGTH : natural := 2560;
   constant LDPC_OFFSET_WIDTH : natural := 16;
   constant LDPC_MESSAGE_INDEX_WIDTH : natural := 10;
+  constant LDPC_CODEWORD_INDEX_WIDTH : natural := 11;
   constant LDPC_ROW_INDEX_WIDTH : natural := 9;
 end package ldpc_encoder_1k_1_2_config_pkg;

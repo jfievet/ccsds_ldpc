@@ -18,6 +18,7 @@ vcom -2008 ../src/ldpc_encoder_1k_1_2_a_tables_pkg.vhd
 vcom -2008 ../src/ldpc_encoder_1k_1_2_b_tables_pkg.vhd
 vcom -2008 ../src/ldpc_encoder_1k_1_2_parity_tables_pkg.vhd
 vcom -2008 ../src/ldpc_encoder_1k_1_2_solver_tables_pkg.vhd
+vcom -2008 ../src/ldpc_codeword_ram.vhd
 vcom -2008 ../src/ldpc_message_ram.vhd
 vcom -2008 ../src/ldpc_message_buffer.vhd
 vcom -2008 ../src/ldpc_output_serializer.vhd

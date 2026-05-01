@@ -19,14 +19,18 @@ entity ldpc_encoder_1k_1_2 is
 end entity ldpc_encoder_1k_1_2;
 
 architecture rtl of ldpc_encoder_1k_1_2 is
-  signal message_ram_wr_en   : std_logic;
-  signal message_ram_wr_addr : std_logic_vector(LDPC_MESSAGE_INDEX_WIDTH - 1 downto 0);
-  signal message_ram_wr_data : std_logic;
-  signal message_ram_rd_addr : std_logic_vector(LDPC_MESSAGE_INDEX_WIDTH - 1 downto 0);
-  signal message_ram_rd_data : std_logic;
-  signal message_valid  : std_logic;
-  signal codeword_bits  : std_logic_vector(0 to LDPC_N - 1);
-  signal codeword_valid : std_logic;
+  signal message_ram_wr_en   : std_logic := '0';
+  signal message_ram_wr_addr : std_logic_vector(LDPC_MESSAGE_INDEX_WIDTH - 1 downto 0) := (others => '0');
+  signal message_ram_wr_data : std_logic := '0';
+  signal message_ram_rd_addr : std_logic_vector(LDPC_MESSAGE_INDEX_WIDTH - 1 downto 0) := (others => '0');
+  signal message_ram_rd_data : std_logic := '0';
+  signal codeword_ram_wr_en   : std_logic := '0';
+  signal codeword_ram_wr_addr : std_logic_vector(LDPC_CODEWORD_INDEX_WIDTH - 1 downto 0) := (others => '0');
+  signal codeword_ram_wr_data : std_logic := '0';
+  signal codeword_ram_rd_addr : std_logic_vector(LDPC_CODEWORD_INDEX_WIDTH - 1 downto 0) := (others => '0');
+  signal codeword_ram_rd_data : std_logic := '0';
+  signal message_valid        : std_logic := '0';
+  signal codeword_valid       : std_logic := '0';
 begin
   message_buffer_inst : entity work.ldpc_message_buffer
     port map (
@@ -51,27 +55,40 @@ begin
       rd_data_o => message_ram_rd_data
     );
 
+  codeword_ram_inst : entity work.ldpc_codeword_ram
+    port map (
+      clock_i   => clock_i,
+      wr_en_i   => codeword_ram_wr_en,
+      wr_addr_i => codeword_ram_wr_addr,
+      wr_data_i => codeword_ram_wr_data,
+      rd_addr_i => codeword_ram_rd_addr,
+      rd_data_o => codeword_ram_rd_data
+    );
+
   parity_core_inst : entity work.ldpc_parity_core
     port map (
-      clock_i          => clock_i,
-      reset_i          => reset_i,
-      start_i          => message_valid,
+      clock_i           => clock_i,
+      reset_i           => reset_i,
+      start_i           => message_valid,
       message_rd_addr_o => message_ram_rd_addr,
       message_rd_data_i => message_ram_rd_data,
-      codeword_bits_o  => codeword_bits,
-      codeword_valid_o => codeword_valid
+      codeword_wr_en_o  => codeword_ram_wr_en,
+      codeword_wr_addr_o => codeword_ram_wr_addr,
+      codeword_wr_data_o => codeword_ram_wr_data,
+      codeword_valid_o  => codeword_valid
     );
 
   serializer_inst : entity work.ldpc_output_serializer
     port map (
-      clock_i         => clock_i,
-      reset_i         => reset_i,
-      load_i          => codeword_valid,
-      codeword_bits_i => codeword_bits,
-      data_o          => data_o,
-      data_en_o       => data_en_o,
-      data_start_o    => data_start_o,
-      data_message_o  => data_message_o,
-      data_parity_o   => data_parity_o
+      clock_i            => clock_i,
+      reset_i            => reset_i,
+      load_i             => codeword_valid,
+      codeword_rd_addr_o => codeword_ram_rd_addr,
+      codeword_rd_data_i => codeword_ram_rd_data,
+      data_o             => data_o,
+      data_en_o          => data_en_o,
+      data_start_o       => data_start_o,
+      data_message_o     => data_message_o,
+      data_parity_o      => data_parity_o
     );
 end architecture rtl;

@@ -418,6 +418,70 @@ def write_vhdl_package(package_name: str, body: str, output_path: Path, use_conf
     output_path.write_text(package_text, encoding="ascii")
 
 
+def write_values_rom(
+        output_path: Path,
+        entity_name: str,
+        config_package_name: str,
+        data_package_name: str,
+        values_count_name: str,
+        values_bits_name: str,
+        data_width_name: str,
+) -> None:
+        rom_text = f"""library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+use work.{config_package_name}.all;
+use work.{data_package_name}.all;
+
+entity {entity_name} is
+    port (
+        clock_i   : in  std_logic;
+        rd_en_i   : in  std_logic;
+        rd_addr_i : in  std_logic_vector(LDPC_OFFSET_WIDTH - 1 downto 0);
+        rd_data_o : out std_logic_vector({data_width_name} - 1 downto 0)
+    );
+end entity {entity_name};
+
+architecture rtl of {entity_name} is
+    type rom_t is array (0 to {values_count_name} - 1) of std_logic_vector({data_width_name} - 1 downto 0);
+
+    function unpack_values return rom_t is
+        variable data : rom_t;
+    begin
+        for index in 0 to {values_count_name} - 1 loop
+            data(index) := {values_bits_name}((index + 1) * {data_width_name} - 1 downto index * {data_width_name});
+        end loop;
+        return data;
+    end function unpack_values;
+
+    signal rom     : rom_t := unpack_values;
+    signal rd_data : std_logic_vector({data_width_name} - 1 downto 0) := (others => '0');
+
+    attribute rom_style : string;
+    attribute rom_style of rom : signal is "block";
+begin
+    rd_data_o <= rd_data;
+
+    process (clock_i)
+        variable address_index : natural;
+    begin
+        if rising_edge(clock_i) then
+            if rd_en_i = '1' then
+                address_index := to_integer(unsigned(rd_addr_i));
+                if address_index < {values_count_name} then
+                    rd_data <= rom(address_index);
+                else
+                    rd_data <= (others => '0');
+                end if;
+            end if;
+        end if;
+    end process;
+end architecture rtl;
+"""
+        output_path.write_text(rom_text, encoding="ascii")
+
+
 def write_config_package(
     constants: Constants,
     output_path: Path,
@@ -465,6 +529,15 @@ def write_split_vhdl_tables(constants: Constants, output_dir: Path, output_prefi
         output_dir / f"{output_prefix}_parity_tables_pkg.vhd",
         output_dir / f"{output_prefix}_solver_tables_pkg.vhd",
     ]
+    rom_paths = [
+        output_dir / "ldpc_a_dep_values_rom.vhd",
+        output_dir / "ldpc_b_dep_values_rom.vhd",
+        output_dir / "ldpc_p1_dep_values_rom.vhd",
+        output_dir / "ldpc_s2_dep_values_rom.vhd",
+        output_dir / "ldpc_s4_dep_values_rom.vhd",
+        output_dir / "ldpc_fwd_target_values_rom.vhd",
+        output_dir / "ldpc_bwd_target_values_rom.vhd",
+    ]
 
     write_config_package(constants, package_paths[0], config_package, offset_width, message_index_width, codeword_index_width, parity_row_width)
 
@@ -507,11 +580,76 @@ def write_split_vhdl_tables(constants: Constants, output_dir: Path, output_prefi
     )
     write_vhdl_package(f"{output_prefix}_solver_tables_pkg", solver_body, package_paths[4], True)
 
+    config_package_name = f"{output_prefix}_config_pkg"
+    write_values_rom(
+        rom_paths[0],
+        "ldpc_a_dep_values_rom",
+        config_package_name,
+        f"{output_prefix}_a_tables_pkg",
+        "A_DEP_VALUES_COUNT",
+        "A_DEP_VALUES_BITS",
+        "LDPC_MESSAGE_INDEX_WIDTH",
+    )
+    write_values_rom(
+        rom_paths[1],
+        "ldpc_b_dep_values_rom",
+        config_package_name,
+        f"{output_prefix}_b_tables_pkg",
+        "B_DEP_VALUES_COUNT",
+        "B_DEP_VALUES_BITS",
+        "LDPC_MESSAGE_INDEX_WIDTH",
+    )
+    write_values_rom(
+        rom_paths[2],
+        "ldpc_p1_dep_values_rom",
+        config_package_name,
+        f"{output_prefix}_parity_tables_pkg",
+        "P1_DEP_VALUES_COUNT",
+        "P1_DEP_VALUES_BITS",
+        "LDPC_ROW_INDEX_WIDTH",
+    )
+    write_values_rom(
+        rom_paths[3],
+        "ldpc_s2_dep_values_rom",
+        config_package_name,
+        f"{output_prefix}_parity_tables_pkg",
+        "S2_DEP_VALUES_COUNT",
+        "S2_DEP_VALUES_BITS",
+        "LDPC_ROW_INDEX_WIDTH",
+    )
+    write_values_rom(
+        rom_paths[4],
+        "ldpc_s4_dep_values_rom",
+        config_package_name,
+        f"{output_prefix}_parity_tables_pkg",
+        "S4_DEP_VALUES_COUNT",
+        "S4_DEP_VALUES_BITS",
+        "LDPC_ROW_INDEX_WIDTH",
+    )
+    write_values_rom(
+        rom_paths[5],
+        "ldpc_fwd_target_values_rom",
+        config_package_name,
+        f"{output_prefix}_solver_tables_pkg",
+        "FWD_TARGET_VALUES_COUNT",
+        "FWD_TARGET_VALUES_BITS",
+        "LDPC_ROW_INDEX_WIDTH",
+    )
+    write_values_rom(
+        rom_paths[6],
+        "ldpc_bwd_target_values_rom",
+        config_package_name,
+        f"{output_prefix}_solver_tables_pkg",
+        "BWD_TARGET_VALUES_COUNT",
+        "BWD_TARGET_VALUES_BITS",
+        "LDPC_ROW_INDEX_WIDTH",
+    )
+
     legacy_package = output_dir / f"{output_prefix}_tables_pkg.vhd"
     if legacy_package.exists():
         legacy_package.unlink()
 
-    return package_paths
+    return package_paths + rom_paths
 
 
 def write_bit_file(path: Path, bits: list[int]) -> None:

@@ -18,6 +18,13 @@ vcom -2008 ../src/ldpc_encoder_1k_1_2_a_tables_pkg.vhd
 vcom -2008 ../src/ldpc_encoder_1k_1_2_b_tables_pkg.vhd
 vcom -2008 ../src/ldpc_encoder_1k_1_2_parity_tables_pkg.vhd
 vcom -2008 ../src/ldpc_encoder_1k_1_2_solver_tables_pkg.vhd
+vcom -2008 ../src/ldpc_a_dep_values_rom.vhd
+vcom -2008 ../src/ldpc_b_dep_values_rom.vhd
+vcom -2008 ../src/ldpc_p1_dep_values_rom.vhd
+vcom -2008 ../src/ldpc_s2_dep_values_rom.vhd
+vcom -2008 ../src/ldpc_s4_dep_values_rom.vhd
+vcom -2008 ../src/ldpc_fwd_target_values_rom.vhd
+vcom -2008 ../src/ldpc_bwd_target_values_rom.vhd
 vcom -2008 ../src/ldpc_codeword_ram.vhd
 vcom -2008 ../src/ldpc_message_ram.vhd
 vcom -2008 ../src/ldpc_message_buffer.vhd
@@ -28,4 +35,4 @@ vcom -2008 ../tb/tb_ldpc_encoder_1k_1_2.vhd
 
 vsim -c -voptargs=+acc work.tb_ldpc_encoder_1k_1_2
 do wave.do
-run 1 ms
+run 2300 us

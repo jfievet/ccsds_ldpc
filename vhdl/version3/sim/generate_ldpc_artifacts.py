@@ -426,6 +426,7 @@ def write_values_rom(
         values_count_name: str,
         values_bits_name: str,
         data_width_name: str,
+    rom_style: str,
 ) -> None:
         rom_text = f"""library ieee;
 use ieee.std_logic_1164.all;
@@ -459,7 +460,7 @@ architecture rtl of {entity_name} is
     signal rd_data : std_logic_vector({data_width_name} - 1 downto 0) := (others => '0');
 
     attribute rom_style : string;
-    attribute rom_style of rom : signal is "block";
+    attribute rom_style of rom : signal is "{rom_style}";
 begin
     rd_data_o <= rd_data;
 
@@ -589,6 +590,7 @@ def write_split_vhdl_tables(constants: Constants, output_dir: Path, output_prefi
         "A_DEP_VALUES_COUNT",
         "A_DEP_VALUES_BITS",
         "LDPC_MESSAGE_INDEX_WIDTH",
+        "distributed",
     )
     write_values_rom(
         rom_paths[1],
@@ -598,6 +600,7 @@ def write_split_vhdl_tables(constants: Constants, output_dir: Path, output_prefi
         "B_DEP_VALUES_COUNT",
         "B_DEP_VALUES_BITS",
         "LDPC_MESSAGE_INDEX_WIDTH",
+        "distributed",
     )
     write_values_rom(
         rom_paths[2],
@@ -607,6 +610,7 @@ def write_split_vhdl_tables(constants: Constants, output_dir: Path, output_prefi
         "P1_DEP_VALUES_COUNT",
         "P1_DEP_VALUES_BITS",
         "LDPC_ROW_INDEX_WIDTH",
+        "distributed",
     )
     write_values_rom(
         rom_paths[3],
@@ -616,6 +620,7 @@ def write_split_vhdl_tables(constants: Constants, output_dir: Path, output_prefi
         "S2_DEP_VALUES_COUNT",
         "S2_DEP_VALUES_BITS",
         "LDPC_ROW_INDEX_WIDTH",
+        "distributed",
     )
     write_values_rom(
         rom_paths[4],
@@ -625,6 +630,7 @@ def write_split_vhdl_tables(constants: Constants, output_dir: Path, output_prefi
         "S4_DEP_VALUES_COUNT",
         "S4_DEP_VALUES_BITS",
         "LDPC_ROW_INDEX_WIDTH",
+        "distributed",
     )
     write_values_rom(
         rom_paths[5],
@@ -634,6 +640,7 @@ def write_split_vhdl_tables(constants: Constants, output_dir: Path, output_prefi
         "FWD_TARGET_VALUES_COUNT",
         "FWD_TARGET_VALUES_BITS",
         "LDPC_ROW_INDEX_WIDTH",
+        "block",
     )
     write_values_rom(
         rom_paths[6],
@@ -643,6 +650,7 @@ def write_split_vhdl_tables(constants: Constants, output_dir: Path, output_prefi
         "BWD_TARGET_VALUES_COUNT",
         "BWD_TARGET_VALUES_BITS",
         "LDPC_ROW_INDEX_WIDTH",
+        "block",
     )
 
     legacy_package = output_dir / f"{output_prefix}_tables_pkg.vhd"

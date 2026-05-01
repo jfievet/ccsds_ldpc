@@ -31,6 +31,27 @@ architecture rtl of ldpc_encoder_1k_1_2 is
   signal codeword_ram_rd_data : std_logic := '0';
   signal message_valid        : std_logic := '0';
   signal codeword_valid       : std_logic := '0';
+  signal a_dep_values_rd_en   : std_logic := '0';
+  signal a_dep_values_rd_addr : std_logic_vector(LDPC_OFFSET_WIDTH - 1 downto 0) := (others => '0');
+  signal a_dep_values_rd_data : std_logic_vector(LDPC_MESSAGE_INDEX_WIDTH - 1 downto 0) := (others => '0');
+  signal b_dep_values_rd_en   : std_logic := '0';
+  signal b_dep_values_rd_addr : std_logic_vector(LDPC_OFFSET_WIDTH - 1 downto 0) := (others => '0');
+  signal b_dep_values_rd_data : std_logic_vector(LDPC_MESSAGE_INDEX_WIDTH - 1 downto 0) := (others => '0');
+  signal p1_dep_values_rd_en   : std_logic := '0';
+  signal p1_dep_values_rd_addr : std_logic_vector(LDPC_OFFSET_WIDTH - 1 downto 0) := (others => '0');
+  signal p1_dep_values_rd_data : std_logic_vector(LDPC_ROW_INDEX_WIDTH - 1 downto 0) := (others => '0');
+  signal s2_dep_values_rd_en   : std_logic := '0';
+  signal s2_dep_values_rd_addr : std_logic_vector(LDPC_OFFSET_WIDTH - 1 downto 0) := (others => '0');
+  signal s2_dep_values_rd_data : std_logic_vector(LDPC_ROW_INDEX_WIDTH - 1 downto 0) := (others => '0');
+  signal s4_dep_values_rd_en   : std_logic := '0';
+  signal s4_dep_values_rd_addr : std_logic_vector(LDPC_OFFSET_WIDTH - 1 downto 0) := (others => '0');
+  signal s4_dep_values_rd_data : std_logic_vector(LDPC_ROW_INDEX_WIDTH - 1 downto 0) := (others => '0');
+  signal fwd_target_values_rd_en   : std_logic := '0';
+  signal fwd_target_values_rd_addr : std_logic_vector(LDPC_OFFSET_WIDTH - 1 downto 0) := (others => '0');
+  signal fwd_target_values_rd_data : std_logic_vector(LDPC_ROW_INDEX_WIDTH - 1 downto 0) := (others => '0');
+  signal bwd_target_values_rd_en   : std_logic := '0';
+  signal bwd_target_values_rd_addr : std_logic_vector(LDPC_OFFSET_WIDTH - 1 downto 0) := (others => '0');
+  signal bwd_target_values_rd_data : std_logic_vector(LDPC_ROW_INDEX_WIDTH - 1 downto 0) := (others => '0');
 begin
   message_buffer_inst : entity work.ldpc_message_buffer
     port map (
@@ -65,6 +86,62 @@ begin
       rd_data_o => codeword_ram_rd_data
     );
 
+  a_dep_values_rom_inst : entity work.ldpc_a_dep_values_rom
+    port map (
+      clock_i   => clock_i,
+      rd_en_i   => a_dep_values_rd_en,
+      rd_addr_i => a_dep_values_rd_addr,
+      rd_data_o => a_dep_values_rd_data
+    );
+
+  b_dep_values_rom_inst : entity work.ldpc_b_dep_values_rom
+    port map (
+      clock_i   => clock_i,
+      rd_en_i   => b_dep_values_rd_en,
+      rd_addr_i => b_dep_values_rd_addr,
+      rd_data_o => b_dep_values_rd_data
+    );
+
+  p1_dep_values_rom_inst : entity work.ldpc_p1_dep_values_rom
+    port map (
+      clock_i   => clock_i,
+      rd_en_i   => p1_dep_values_rd_en,
+      rd_addr_i => p1_dep_values_rd_addr,
+      rd_data_o => p1_dep_values_rd_data
+    );
+
+  s2_dep_values_rom_inst : entity work.ldpc_s2_dep_values_rom
+    port map (
+      clock_i   => clock_i,
+      rd_en_i   => s2_dep_values_rd_en,
+      rd_addr_i => s2_dep_values_rd_addr,
+      rd_data_o => s2_dep_values_rd_data
+    );
+
+  s4_dep_values_rom_inst : entity work.ldpc_s4_dep_values_rom
+    port map (
+      clock_i   => clock_i,
+      rd_en_i   => s4_dep_values_rd_en,
+      rd_addr_i => s4_dep_values_rd_addr,
+      rd_data_o => s4_dep_values_rd_data
+    );
+
+  fwd_target_values_rom_inst : entity work.ldpc_fwd_target_values_rom
+    port map (
+      clock_i   => clock_i,
+      rd_en_i   => fwd_target_values_rd_en,
+      rd_addr_i => fwd_target_values_rd_addr,
+      rd_data_o => fwd_target_values_rd_data
+    );
+
+  bwd_target_values_rom_inst : entity work.ldpc_bwd_target_values_rom
+    port map (
+      clock_i   => clock_i,
+      rd_en_i   => bwd_target_values_rd_en,
+      rd_addr_i => bwd_target_values_rd_addr,
+      rd_data_o => bwd_target_values_rd_data
+    );
+
   parity_core_inst : entity work.ldpc_parity_core
     port map (
       clock_i           => clock_i,
@@ -72,6 +149,27 @@ begin
       start_i           => message_valid,
       message_rd_addr_o => message_ram_rd_addr,
       message_rd_data_i => message_ram_rd_data,
+      a_dep_values_rd_en_o => a_dep_values_rd_en,
+      a_dep_values_rd_addr_o => a_dep_values_rd_addr,
+      a_dep_values_rd_data_i => a_dep_values_rd_data,
+      b_dep_values_rd_en_o => b_dep_values_rd_en,
+      b_dep_values_rd_addr_o => b_dep_values_rd_addr,
+      b_dep_values_rd_data_i => b_dep_values_rd_data,
+      p1_dep_values_rd_en_o => p1_dep_values_rd_en,
+      p1_dep_values_rd_addr_o => p1_dep_values_rd_addr,
+      p1_dep_values_rd_data_i => p1_dep_values_rd_data,
+      s2_dep_values_rd_en_o => s2_dep_values_rd_en,
+      s2_dep_values_rd_addr_o => s2_dep_values_rd_addr,
+      s2_dep_values_rd_data_i => s2_dep_values_rd_data,
+      s4_dep_values_rd_en_o => s4_dep_values_rd_en,
+      s4_dep_values_rd_addr_o => s4_dep_values_rd_addr,
+      s4_dep_values_rd_data_i => s4_dep_values_rd_data,
+      fwd_target_values_rd_en_o => fwd_target_values_rd_en,
+      fwd_target_values_rd_addr_o => fwd_target_values_rd_addr,
+      fwd_target_values_rd_data_i => fwd_target_values_rd_data,
+      bwd_target_values_rd_en_o => bwd_target_values_rd_en,
+      bwd_target_values_rd_addr_o => bwd_target_values_rd_addr,
+      bwd_target_values_rd_data_i => bwd_target_values_rd_data,
       codeword_wr_en_o  => codeword_ram_wr_en,
       codeword_wr_addr_o => codeword_ram_wr_addr,
       codeword_wr_data_o => codeword_ram_wr_data,

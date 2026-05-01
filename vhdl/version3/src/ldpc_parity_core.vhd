@@ -43,8 +43,10 @@ architecture rtl of ldpc_parity_core is
     rhs_finalize_s,
     load_parity_3_s,
     forward_swap_s,
+    forward_apply_wait_s,
     forward_apply_s,
     backward_setup_s,
+    backward_apply_wait_s,
     backward_apply_s,
     parity_2_setup_s,
     parity_2_accum_s,
@@ -82,6 +84,12 @@ architecture rtl of ldpc_parity_core is
   signal message_bits_wr_data : std_logic := '0';
   signal message_bits_rd_addr : std_logic_vector(LDPC_MESSAGE_INDEX_WIDTH - 1 downto 0) := (others => '0');
   signal message_bits_rd_data : std_logic := '0';
+  signal fwd_target_values_rd_en   : std_logic := '0';
+  signal fwd_target_values_rd_addr : std_logic_vector(LDPC_OFFSET_WIDTH - 1 downto 0) := (others => '0');
+  signal fwd_target_values_rd_data : std_logic_vector(LDPC_ROW_INDEX_WIDTH - 1 downto 0) := (others => '0');
+  signal bwd_target_values_rd_en   : std_logic := '0';
+  signal bwd_target_values_rd_addr : std_logic_vector(LDPC_OFFSET_WIDTH - 1 downto 0) := (others => '0');
+  signal bwd_target_values_rd_data : std_logic_vector(LDPC_ROW_INDEX_WIDTH - 1 downto 0) := (others => '0');
   signal a_times_message_wr_en   : std_logic := '0';
   signal a_times_message_wr_addr : std_logic_vector(LDPC_ROW_INDEX_WIDTH - 1 downto 0) := (others => '0');
   signal a_times_message_wr_data : std_logic := '0';
@@ -110,6 +118,22 @@ architecture rtl of ldpc_parity_core is
   attribute ram_style of parity_1_ram : signal is "block";
   attribute ram_style of parity_2_ram : signal is "block";
 begin
+  fwd_target_values_rom_inst : entity work.ldpc_fwd_target_values_rom
+    port map (
+      clock_i   => clock_i,
+      rd_en_i   => fwd_target_values_rd_en,
+      rd_addr_i => fwd_target_values_rd_addr,
+      rd_data_o => fwd_target_values_rd_data
+    );
+
+  bwd_target_values_rom_inst : entity work.ldpc_bwd_target_values_rom
+    port map (
+      clock_i   => clock_i,
+      rd_en_i   => bwd_target_values_rd_en,
+      rd_addr_i => bwd_target_values_rd_addr,
+      rd_data_o => bwd_target_values_rd_data
+    );
+
   process (clock_i)
   begin
     if rising_edge(clock_i) then
@@ -159,6 +183,10 @@ begin
         message_bits_wr_addr <= (others => '0');
         message_bits_wr_data <= '0';
         message_bits_rd_addr <= (others => '0');
+        fwd_target_values_rd_en <= '0';
+        fwd_target_values_rd_addr <= (others => '0');
+        bwd_target_values_rd_en <= '0';
+        bwd_target_values_rd_addr <= (others => '0');
         a_times_message_wr_en   <= '0';
         a_times_message_wr_addr <= (others => '0');
         a_times_message_wr_data <= '0';
@@ -182,6 +210,8 @@ begin
         codeword_valid_o <= '0';
       else
         message_bits_wr_en <= '0';
+        fwd_target_values_rd_en <= '0';
+        bwd_target_values_rd_en <= '0';
         a_times_message_wr_en <= '0';
         b_times_message_wr_en <= '0';
         parity_1_wr_en <= '0';
@@ -198,6 +228,8 @@ begin
               parity_3 <= (others => '0');
               codeword_write_index <= 0;
               message_bits_rd_addr <= (others => '0');
+              fwd_target_values_rd_addr <= (others => '0');
+              bwd_target_values_rd_addr <= (others => '0');
               a_times_message_rd_addr <= (others => '0');
               b_times_message_rd_addr <= (others => '0');
               parity_1_rd_addr <= (others => '0');
@@ -396,51 +428,85 @@ begin
             end if;
             dependency_index <= to_integer(unsigned(FWD_TARGET_OFFSETS_BITS((pivot_index + 1) * LDPC_OFFSET_WIDTH - 1 downto pivot_index * LDPC_OFFSET_WIDTH)));
             dependency_limit <= to_integer(unsigned(FWD_TARGET_OFFSETS_BITS((pivot_index + 2) * LDPC_OFFSET_WIDTH - 1 downto (pivot_index + 1) * LDPC_OFFSET_WIDTH)));
+            if to_integer(unsigned(FWD_TARGET_OFFSETS_BITS((pivot_index + 1) * LDPC_OFFSET_WIDTH - 1 downto pivot_index * LDPC_OFFSET_WIDTH))) <
+               to_integer(unsigned(FWD_TARGET_OFFSETS_BITS((pivot_index + 2) * LDPC_OFFSET_WIDTH - 1 downto (pivot_index + 1) * LDPC_OFFSET_WIDTH))) then
+              fwd_target_values_rd_en <= '1';
+              fwd_target_values_rd_addr <= std_logic_vector(
+                to_unsigned(
+                  to_integer(unsigned(FWD_TARGET_OFFSETS_BITS((pivot_index + 1) * LDPC_OFFSET_WIDTH - 1 downto pivot_index * LDPC_OFFSET_WIDTH))),
+                  LDPC_OFFSET_WIDTH
+                )
+              );
+              state <= forward_apply_wait_s;
+            elsif pivot_index = LDPC_M - 1 then
+              pivot_index <= LDPC_M - 1;
+              state <= backward_setup_s;
+            else
+              pivot_index <= pivot_index + 1;
+              state <= forward_swap_s;
+            end if;
+
+          when forward_apply_wait_s =>
             state <= forward_apply_s;
 
           when forward_apply_s =>
-            if dependency_index < dependency_limit then
-              if parity_3(pivot_index) = '1' then
-                parity_3(
-                  to_integer(unsigned(FWD_TARGET_VALUES_BITS((dependency_index + 1) * LDPC_ROW_INDEX_WIDTH - 1 downto dependency_index * LDPC_ROW_INDEX_WIDTH)))
-                ) <= not parity_3(
-                  to_integer(unsigned(FWD_TARGET_VALUES_BITS((dependency_index + 1) * LDPC_ROW_INDEX_WIDTH - 1 downto dependency_index * LDPC_ROW_INDEX_WIDTH)))
-                );
-              end if;
+            if parity_3(pivot_index) = '1' then
+              parity_3(to_integer(unsigned(fwd_target_values_rd_data))) <= not parity_3(to_integer(unsigned(fwd_target_values_rd_data)));
+            end if;
+
+            if dependency_index + 1 < dependency_limit then
               dependency_index <= dependency_index + 1;
+              fwd_target_values_rd_en <= '1';
+              fwd_target_values_rd_addr <= std_logic_vector(to_unsigned(dependency_index + 1, LDPC_OFFSET_WIDTH));
+              state <= forward_apply_wait_s;
+            elsif pivot_index = LDPC_M - 1 then
+              pivot_index <= LDPC_M - 1;
+              state <= backward_setup_s;
             else
-              if pivot_index = LDPC_M - 1 then
-                pivot_index <= LDPC_M - 1;
-                state <= backward_setup_s;
-              else
-                pivot_index <= pivot_index + 1;
-                state <= forward_swap_s;
-              end if;
+              pivot_index <= pivot_index + 1;
+              state <= forward_swap_s;
             end if;
 
           when backward_setup_s =>
             dependency_index <= to_integer(unsigned(BWD_TARGET_OFFSETS_BITS((pivot_index + 1) * LDPC_OFFSET_WIDTH - 1 downto pivot_index * LDPC_OFFSET_WIDTH)));
             dependency_limit <= to_integer(unsigned(BWD_TARGET_OFFSETS_BITS((pivot_index + 2) * LDPC_OFFSET_WIDTH - 1 downto (pivot_index + 1) * LDPC_OFFSET_WIDTH)));
+            if to_integer(unsigned(BWD_TARGET_OFFSETS_BITS((pivot_index + 1) * LDPC_OFFSET_WIDTH - 1 downto pivot_index * LDPC_OFFSET_WIDTH))) <
+               to_integer(unsigned(BWD_TARGET_OFFSETS_BITS((pivot_index + 2) * LDPC_OFFSET_WIDTH - 1 downto (pivot_index + 1) * LDPC_OFFSET_WIDTH))) then
+              bwd_target_values_rd_en <= '1';
+              bwd_target_values_rd_addr <= std_logic_vector(
+                to_unsigned(
+                  to_integer(unsigned(BWD_TARGET_OFFSETS_BITS((pivot_index + 1) * LDPC_OFFSET_WIDTH - 1 downto pivot_index * LDPC_OFFSET_WIDTH))),
+                  LDPC_OFFSET_WIDTH
+                )
+              );
+              state <= backward_apply_wait_s;
+            elsif pivot_index = 0 then
+              row_index <= 0;
+              state <= parity_2_setup_s;
+            else
+              pivot_index <= pivot_index - 1;
+              state <= backward_setup_s;
+            end if;
+
+          when backward_apply_wait_s =>
             state <= backward_apply_s;
 
           when backward_apply_s =>
-            if dependency_index < dependency_limit then
-              if parity_3(pivot_index) = '1' then
-                parity_3(
-                  to_integer(unsigned(BWD_TARGET_VALUES_BITS((dependency_index + 1) * LDPC_ROW_INDEX_WIDTH - 1 downto dependency_index * LDPC_ROW_INDEX_WIDTH)))
-                ) <= not parity_3(
-                  to_integer(unsigned(BWD_TARGET_VALUES_BITS((dependency_index + 1) * LDPC_ROW_INDEX_WIDTH - 1 downto dependency_index * LDPC_ROW_INDEX_WIDTH)))
-                );
-              end if;
+            if parity_3(pivot_index) = '1' then
+              parity_3(to_integer(unsigned(bwd_target_values_rd_data))) <= not parity_3(to_integer(unsigned(bwd_target_values_rd_data)));
+            end if;
+
+            if dependency_index + 1 < dependency_limit then
               dependency_index <= dependency_index + 1;
+              bwd_target_values_rd_en <= '1';
+              bwd_target_values_rd_addr <= std_logic_vector(to_unsigned(dependency_index + 1, LDPC_OFFSET_WIDTH));
+              state <= backward_apply_wait_s;
+            elsif pivot_index = 0 then
+              row_index <= 0;
+              state <= parity_2_setup_s;
             else
-              if pivot_index = 0 then
-                row_index <= 0;
-                state <= parity_2_setup_s;
-              else
-                pivot_index <= pivot_index - 1;
-                state <= backward_setup_s;
-              end if;
+              pivot_index <= pivot_index - 1;
+              state <= backward_setup_s;
             end if;
 
           when parity_2_setup_s =>

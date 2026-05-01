@@ -30,7 +30,7 @@ architecture rtl of ldpc_s4_dep_values_rom is
     signal rd_data : std_logic_vector(LDPC_ROW_INDEX_WIDTH - 1 downto 0) := (others => '0');
 
     attribute rom_style : string;
-    attribute rom_style of rom : signal is "block";
+    attribute rom_style of rom : signal is "distributed";
 begin
     rd_data_o <= rd_data;
 

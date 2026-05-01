@@ -23,6 +23,8 @@ entity ldpc_parity_core is
 end entity ldpc_parity_core;
 
 architecture rtl of ldpc_parity_core is
+  type parity_ram_t is array (0 to LDPC_M - 1) of std_logic;
+
   type parity_state_t is (
     idle_s,
     load_message_wait_s,
@@ -42,7 +44,13 @@ architecture rtl of ldpc_parity_core is
     parity_2_accum_s,
     parity_1_setup_s,
     parity_1_accum_s,
-    assemble_codeword_s
+    assemble_codeword_s,
+    assemble_parity_1_request_s,
+    assemble_parity_1_wait_s,
+    assemble_parity_1_write_s,
+    assemble_parity_2_request_s,
+    assemble_parity_2_wait_s,
+    assemble_parity_2_write_s
   );
 
   signal state             : parity_state_t := idle_s;
@@ -50,8 +58,8 @@ architecture rtl of ldpc_parity_core is
   signal a_times_message   : std_logic_vector(0 to LDPC_M - 1) := (others => '0');
   signal b_times_message   : std_logic_vector(0 to LDPC_M - 1) := (others => '0');
   signal rhs               : std_logic_vector(0 to LDPC_M - 1) := (others => '0');
-  signal parity_1          : std_logic_vector(0 to LDPC_M - 1) := (others => '0');
-  signal parity_2          : std_logic_vector(0 to LDPC_M - 1) := (others => '0');
+  signal parity_1_ram      : parity_ram_t := (others => '0');
+  signal parity_2_ram      : parity_ram_t := (others => '0');
   signal parity_3          : std_logic_vector(0 to LDPC_M - 1) := (others => '0');
   signal row_index         : natural range 0 to LDPC_M - 1 := 0;
   signal pivot_index       : natural range 0 to LDPC_M - 1 := 0;
@@ -61,7 +69,35 @@ architecture rtl of ldpc_parity_core is
   signal swap_row_index    : natural range 0 to LDPC_M - 1 := 0;
   signal message_load_index : natural range 0 to LDPC_K - 1 := 0;
   signal codeword_write_index : natural range 0 to LDPC_N - 1 := 0;
+  signal parity_1_wr_en    : std_logic := '0';
+  signal parity_1_wr_addr  : std_logic_vector(LDPC_ROW_INDEX_WIDTH - 1 downto 0) := (others => '0');
+  signal parity_1_wr_data  : std_logic := '0';
+  signal parity_1_rd_addr  : std_logic_vector(LDPC_ROW_INDEX_WIDTH - 1 downto 0) := (others => '0');
+  signal parity_1_rd_data  : std_logic := '0';
+  signal parity_2_wr_en    : std_logic := '0';
+  signal parity_2_wr_addr  : std_logic_vector(LDPC_ROW_INDEX_WIDTH - 1 downto 0) := (others => '0');
+  signal parity_2_wr_data  : std_logic := '0';
+  signal parity_2_rd_addr  : std_logic_vector(LDPC_ROW_INDEX_WIDTH - 1 downto 0) := (others => '0');
+  signal parity_2_rd_data  : std_logic := '0';
+
+  attribute ram_style : string;
+  attribute ram_style of parity_1_ram : signal is "block";
+  attribute ram_style of parity_2_ram : signal is "block";
 begin
+  process (clock_i)
+  begin
+    if rising_edge(clock_i) then
+      if parity_1_wr_en = '1' then
+        parity_1_ram(to_integer(unsigned(parity_1_wr_addr))) <= parity_1_wr_data;
+      end if;
+      parity_1_rd_data <= parity_1_ram(to_integer(unsigned(parity_1_rd_addr)));
+
+      if parity_2_wr_en = '1' then
+        parity_2_ram(to_integer(unsigned(parity_2_wr_addr))) <= parity_2_wr_data;
+      end if;
+      parity_2_rd_data <= parity_2_ram(to_integer(unsigned(parity_2_rd_addr)));
+    end if;
+  end process;
 
   process (clock_i)
   begin
@@ -72,8 +108,6 @@ begin
         a_times_message  <= (others => '0');
         b_times_message  <= (others => '0');
         rhs              <= (others => '0');
-        parity_1         <= (others => '0');
-        parity_2         <= (others => '0');
         parity_3         <= (others => '0');
         row_index        <= 0;
         pivot_index      <= 0;
@@ -83,12 +117,22 @@ begin
         swap_row_index   <= 0;
         message_load_index <= 0;
         codeword_write_index <= 0;
+        parity_1_wr_en   <= '0';
+        parity_1_wr_addr <= (others => '0');
+        parity_1_wr_data <= '0';
+        parity_1_rd_addr <= (others => '0');
+        parity_2_wr_en   <= '0';
+        parity_2_wr_addr <= (others => '0');
+        parity_2_wr_data <= '0';
+        parity_2_rd_addr <= (others => '0');
         message_rd_addr_o <= (others => '0');
         codeword_wr_en_o <= '0';
         codeword_wr_addr_o <= (others => '0');
         codeword_wr_data_o <= '0';
         codeword_valid_o <= '0';
       else
+        parity_1_wr_en <= '0';
+        parity_2_wr_en <= '0';
         codeword_wr_en_o <= '0';
         codeword_valid_o <= '0';
 
@@ -101,10 +145,10 @@ begin
               a_times_message <= (others => '0');
               b_times_message <= (others => '0');
               rhs <= (others => '0');
-              parity_1 <= (others => '0');
-              parity_2 <= (others => '0');
               parity_3 <= (others => '0');
               codeword_write_index <= 0;
+              parity_1_rd_addr <= (others => '0');
+              parity_2_rd_addr <= (others => '0');
               row_index <= 0;
               state <= load_message_wait_s;
             end if;
@@ -264,7 +308,9 @@ begin
               );
               dependency_index <= dependency_index + 1;
             else
-              parity_2(row_index) <= a_times_message(row_index) xor dependency_accum;
+              parity_2_wr_en <= '1';
+              parity_2_wr_addr <= std_logic_vector(to_unsigned(row_index, LDPC_ROW_INDEX_WIDTH));
+              parity_2_wr_data <= a_times_message(row_index) xor dependency_accum;
               if row_index = LDPC_M - 1 then
                 row_index <= 0;
                 state <= parity_1_setup_s;
@@ -287,9 +333,12 @@ begin
               );
               dependency_index <= dependency_index + 1;
             else
-              parity_1(row_index) <= dependency_accum;
+              parity_1_wr_en <= '1';
+              parity_1_wr_addr <= std_logic_vector(to_unsigned(row_index, LDPC_ROW_INDEX_WIDTH));
+              parity_1_wr_data <= dependency_accum;
               if row_index = LDPC_M - 1 then
                 codeword_write_index <= 0;
+                row_index <= 0;
                 state <= assemble_codeword_s;
               else
                 row_index <= row_index + 1;
@@ -301,19 +350,57 @@ begin
             codeword_wr_en_o <= '1';
             codeword_wr_addr_o <= std_logic_vector(to_unsigned(codeword_write_index, LDPC_CODEWORD_INDEX_WIDTH));
 
-            if codeword_write_index < LDPC_K then
-              codeword_wr_data_o <= message_bits_reg(codeword_write_index);
-            elsif codeword_write_index < LDPC_K + LDPC_M then
-              codeword_wr_data_o <= parity_1(codeword_write_index - LDPC_K);
+            codeword_wr_data_o <= message_bits_reg(codeword_write_index);
+
+            if codeword_write_index = LDPC_K - 1 then
+              codeword_write_index <= LDPC_K;
+              row_index <= 0;
+              state <= assemble_parity_1_request_s;
             else
-              codeword_wr_data_o <= parity_2(codeword_write_index - LDPC_K - LDPC_M);
+              codeword_write_index <= codeword_write_index + 1;
             end if;
 
-            if codeword_write_index = LDPC_N - 1 then
+          when assemble_parity_1_request_s =>
+            parity_1_rd_addr <= std_logic_vector(to_unsigned(row_index, LDPC_ROW_INDEX_WIDTH));
+            state <= assemble_parity_1_wait_s;
+
+          when assemble_parity_1_wait_s =>
+            state <= assemble_parity_1_write_s;
+
+          when assemble_parity_1_write_s =>
+            codeword_wr_en_o <= '1';
+            codeword_wr_addr_o <= std_logic_vector(to_unsigned(codeword_write_index, LDPC_CODEWORD_INDEX_WIDTH));
+            codeword_wr_data_o <= parity_1_rd_data;
+
+            if row_index = LDPC_M - 1 then
+              codeword_write_index <= LDPC_K + LDPC_M;
+              row_index <= 0;
+              state <= assemble_parity_2_request_s;
+            else
+              codeword_write_index <= codeword_write_index + 1;
+              row_index <= row_index + 1;
+              state <= assemble_parity_1_request_s;
+            end if;
+
+          when assemble_parity_2_request_s =>
+            parity_2_rd_addr <= std_logic_vector(to_unsigned(row_index, LDPC_ROW_INDEX_WIDTH));
+            state <= assemble_parity_2_wait_s;
+
+          when assemble_parity_2_wait_s =>
+            state <= assemble_parity_2_write_s;
+
+          when assemble_parity_2_write_s =>
+            codeword_wr_en_o <= '1';
+            codeword_wr_addr_o <= std_logic_vector(to_unsigned(codeword_write_index, LDPC_CODEWORD_INDEX_WIDTH));
+            codeword_wr_data_o <= parity_2_rd_data;
+
+            if row_index = LDPC_M - 1 then
               codeword_valid_o <= '1';
               state <= idle_s;
             else
               codeword_write_index <= codeword_write_index + 1;
+              row_index <= row_index + 1;
+              state <= assemble_parity_2_request_s;
             end if;
         end case;
       end if;

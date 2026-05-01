@@ -34,6 +34,8 @@ architecture rtl of ldpc_parity_core is
     compute_a_wait_s,
     compute_a_accum_s,
     compute_b_setup_s,
+    compute_b_dep_wait_s,
+    compute_b_addr_s,
     compute_b_wait_s,
     compute_b_accum_s,
     rhs_setup_s,
@@ -49,6 +51,7 @@ architecture rtl of ldpc_parity_core is
     backward_apply_wait_s,
     backward_apply_s,
     parity_2_setup_s,
+    parity_2_wait_s,
     parity_2_accum_s,
     parity_1_setup_s,
     parity_1_accum_s,
@@ -90,6 +93,12 @@ architecture rtl of ldpc_parity_core is
   signal bwd_target_values_rd_en   : std_logic := '0';
   signal bwd_target_values_rd_addr : std_logic_vector(LDPC_OFFSET_WIDTH - 1 downto 0) := (others => '0');
   signal bwd_target_values_rd_data : std_logic_vector(LDPC_ROW_INDEX_WIDTH - 1 downto 0) := (others => '0');
+  signal b_dep_values_rd_en   : std_logic := '0';
+  signal b_dep_values_rd_addr : std_logic_vector(LDPC_OFFSET_WIDTH - 1 downto 0) := (others => '0');
+  signal b_dep_values_rd_data : std_logic_vector(LDPC_MESSAGE_INDEX_WIDTH - 1 downto 0) := (others => '0');
+  signal s2_dep_values_rd_en   : std_logic := '0';
+  signal s2_dep_values_rd_addr : std_logic_vector(LDPC_OFFSET_WIDTH - 1 downto 0) := (others => '0');
+  signal s2_dep_values_rd_data : std_logic_vector(LDPC_ROW_INDEX_WIDTH - 1 downto 0) := (others => '0');
   signal a_times_message_wr_en   : std_logic := '0';
   signal a_times_message_wr_addr : std_logic_vector(LDPC_ROW_INDEX_WIDTH - 1 downto 0) := (others => '0');
   signal a_times_message_wr_data : std_logic := '0';
@@ -118,6 +127,22 @@ architecture rtl of ldpc_parity_core is
   attribute ram_style of parity_1_ram : signal is "block";
   attribute ram_style of parity_2_ram : signal is "block";
 begin
+  b_dep_values_rom_inst : entity work.ldpc_b_dep_values_rom
+    port map (
+      clock_i   => clock_i,
+      rd_en_i   => b_dep_values_rd_en,
+      rd_addr_i => b_dep_values_rd_addr,
+      rd_data_o => b_dep_values_rd_data
+    );
+
+  s2_dep_values_rom_inst : entity work.ldpc_s2_dep_values_rom
+    port map (
+      clock_i   => clock_i,
+      rd_en_i   => s2_dep_values_rd_en,
+      rd_addr_i => s2_dep_values_rd_addr,
+      rd_data_o => s2_dep_values_rd_data
+    );
+
   fwd_target_values_rom_inst : entity work.ldpc_fwd_target_values_rom
     port map (
       clock_i   => clock_i,
@@ -183,10 +208,14 @@ begin
         message_bits_wr_addr <= (others => '0');
         message_bits_wr_data <= '0';
         message_bits_rd_addr <= (others => '0');
+        b_dep_values_rd_en <= '0';
+        b_dep_values_rd_addr <= (others => '0');
         fwd_target_values_rd_en <= '0';
         fwd_target_values_rd_addr <= (others => '0');
         bwd_target_values_rd_en <= '0';
         bwd_target_values_rd_addr <= (others => '0');
+        s2_dep_values_rd_en <= '0';
+        s2_dep_values_rd_addr <= (others => '0');
         a_times_message_wr_en   <= '0';
         a_times_message_wr_addr <= (others => '0');
         a_times_message_wr_data <= '0';
@@ -210,8 +239,10 @@ begin
         codeword_valid_o <= '0';
       else
         message_bits_wr_en <= '0';
+        b_dep_values_rd_en <= '0';
         fwd_target_values_rd_en <= '0';
         bwd_target_values_rd_en <= '0';
+        s2_dep_values_rd_en <= '0';
         a_times_message_wr_en <= '0';
         b_times_message_wr_en <= '0';
         parity_1_wr_en <= '0';
@@ -316,16 +347,14 @@ begin
             dependency_accum <= '0';
             if to_integer(unsigned(B_DEP_OFFSETS_BITS((row_index + 1) * LDPC_OFFSET_WIDTH - 1 downto row_index * LDPC_OFFSET_WIDTH))) <
                to_integer(unsigned(B_DEP_OFFSETS_BITS((row_index + 2) * LDPC_OFFSET_WIDTH - 1 downto (row_index + 1) * LDPC_OFFSET_WIDTH))) then
-              message_bits_rd_addr <= std_logic_vector(
+              b_dep_values_rd_en <= '1';
+              b_dep_values_rd_addr <= std_logic_vector(
                 to_unsigned(
-                  to_integer(unsigned(B_DEP_VALUES_BITS(
-                    (to_integer(unsigned(B_DEP_OFFSETS_BITS((row_index + 1) * LDPC_OFFSET_WIDTH - 1 downto row_index * LDPC_OFFSET_WIDTH))) + 1) * LDPC_MESSAGE_INDEX_WIDTH - 1 downto
-                    to_integer(unsigned(B_DEP_OFFSETS_BITS((row_index + 1) * LDPC_OFFSET_WIDTH - 1 downto row_index * LDPC_OFFSET_WIDTH))) * LDPC_MESSAGE_INDEX_WIDTH
-                  ))),
-                  LDPC_MESSAGE_INDEX_WIDTH
+                  to_integer(unsigned(B_DEP_OFFSETS_BITS((row_index + 1) * LDPC_OFFSET_WIDTH - 1 downto row_index * LDPC_OFFSET_WIDTH))),
+                  LDPC_OFFSET_WIDTH
                 )
               );
-              state <= compute_b_wait_s;
+              state <= compute_b_dep_wait_s;
             else
               b_times_message_wr_en <= '1';
               b_times_message_wr_addr <= std_logic_vector(to_unsigned(row_index, LDPC_ROW_INDEX_WIDTH));
@@ -339,6 +368,13 @@ begin
               end if;
             end if;
 
+          when compute_b_dep_wait_s =>
+            state <= compute_b_addr_s;
+
+          when compute_b_addr_s =>
+            message_bits_rd_addr <= b_dep_values_rd_data;
+            state <= compute_b_wait_s;
+
           when compute_b_wait_s =>
             state <= compute_b_accum_s;
 
@@ -346,13 +382,9 @@ begin
             if dependency_index + 1 < dependency_limit then
               dependency_accum <= dependency_accum xor message_bits_rd_data;
               dependency_index <= dependency_index + 1;
-              message_bits_rd_addr <= std_logic_vector(
-                to_unsigned(
-                  to_integer(unsigned(B_DEP_VALUES_BITS((dependency_index + 2) * LDPC_MESSAGE_INDEX_WIDTH - 1 downto (dependency_index + 1) * LDPC_MESSAGE_INDEX_WIDTH))),
-                  LDPC_MESSAGE_INDEX_WIDTH
-                )
-              );
-              state <= compute_b_wait_s;
+              b_dep_values_rd_en <= '1';
+              b_dep_values_rd_addr <= std_logic_vector(to_unsigned(dependency_index + 1, LDPC_OFFSET_WIDTH));
+              state <= compute_b_dep_wait_s;
             else
               b_times_message_wr_en <= '1';
               b_times_message_wr_addr <= std_logic_vector(to_unsigned(row_index, LDPC_ROW_INDEX_WIDTH));
@@ -514,14 +546,34 @@ begin
             dependency_limit <= to_integer(unsigned(S2_DEP_OFFSETS_BITS((row_index + 2) * LDPC_OFFSET_WIDTH - 1 downto (row_index + 1) * LDPC_OFFSET_WIDTH)));
             dependency_accum <= '0';
             a_times_message_rd_addr <= std_logic_vector(to_unsigned(row_index, LDPC_ROW_INDEX_WIDTH));
+            if to_integer(unsigned(S2_DEP_OFFSETS_BITS((row_index + 1) * LDPC_OFFSET_WIDTH - 1 downto row_index * LDPC_OFFSET_WIDTH))) <
+               to_integer(unsigned(S2_DEP_OFFSETS_BITS((row_index + 2) * LDPC_OFFSET_WIDTH - 1 downto (row_index + 1) * LDPC_OFFSET_WIDTH))) then
+              s2_dep_values_rd_en <= '1';
+              s2_dep_values_rd_addr <= std_logic_vector(
+                to_unsigned(
+                  to_integer(unsigned(S2_DEP_OFFSETS_BITS((row_index + 1) * LDPC_OFFSET_WIDTH - 1 downto row_index * LDPC_OFFSET_WIDTH))),
+                  LDPC_OFFSET_WIDTH
+                )
+              );
+              state <= parity_2_wait_s;
+            else
+              state <= parity_2_accum_s;
+            end if;
+
+          when parity_2_wait_s =>
             state <= parity_2_accum_s;
 
           when parity_2_accum_s =>
             if dependency_index < dependency_limit then
-              dependency_accum <= dependency_accum xor parity_3(
-                to_integer(unsigned(S2_DEP_VALUES_BITS((dependency_index + 1) * LDPC_ROW_INDEX_WIDTH - 1 downto dependency_index * LDPC_ROW_INDEX_WIDTH)))
-              );
-              dependency_index <= dependency_index + 1;
+              dependency_accum <= dependency_accum xor parity_3(to_integer(unsigned(s2_dep_values_rd_data)));
+              if dependency_index + 1 < dependency_limit then
+                dependency_index <= dependency_index + 1;
+                s2_dep_values_rd_en <= '1';
+                s2_dep_values_rd_addr <= std_logic_vector(to_unsigned(dependency_index + 1, LDPC_OFFSET_WIDTH));
+                state <= parity_2_wait_s;
+              else
+                dependency_index <= dependency_index + 1;
+              end if;
             else
               parity_2_wr_en <= '1';
               parity_2_wr_addr <= std_logic_vector(to_unsigned(row_index, LDPC_ROW_INDEX_WIDTH));

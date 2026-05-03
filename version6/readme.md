@@ -1,1 +1,0 @@
-Nine CCSDS LDPC encoders: 1k, 4k, 16k with code rates 1/2, 2/3, and 4/5. The configurations are independent and static; there is no possibility to change the configuration dynamically.

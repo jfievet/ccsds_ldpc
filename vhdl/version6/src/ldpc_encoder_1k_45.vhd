@@ -22,13 +22,35 @@ entity ldpc_encoder_1k_45 is
 end entity ldpc_encoder_1k_45;
 
 architecture rtl of ldpc_encoder_1k_45 is
-  signal rom_row_block_s : natural range 0 to LDPC_QC_ROW_BLOCKS - 1 := 0;
-  signal rom_data_s : t_std_logic_vector_array(0 to LDPC_QC_COL_BLOCKS - 1)(LDPC_QC_BLOCK_SIZE - 1 downto 0) := (others => (others => '0'));
-begin
-  rom_generate : for rom_index in 0 to LDPC_QC_COL_BLOCKS - 1 generate
+  subtype t_qc_row_data is std_logic_vector((LDPC_QC_COL_BLOCKS * LDPC_QC_BLOCK_SIZE) - 1 downto 0);
+  type t_qc_rom_image is array (0 to LDPC_QC_ROW_BLOCKS - 1) of t_qc_row_data;
+
+  function build_qc_rom return t_qc_rom_image is
+    variable rom_v : t_qc_rom_image := (others => (others => '0'));
   begin
-    rom_data_s(rom_index) <= C_LDPC_QC_ROM_BANK_1K_45(rom_index)(rom_row_block_s);
-  end generate rom_generate;
+    for row_index in 0 to LDPC_QC_ROW_BLOCKS - 1 loop
+      for col_index in 0 to LDPC_QC_COL_BLOCKS - 1 loop
+        rom_v(row_index)((col_index + 1) * LDPC_QC_BLOCK_SIZE - 1 downto col_index * LDPC_QC_BLOCK_SIZE) :=
+          C_LDPC_QC_ROM_BANK_1K_45(col_index)(row_index);
+      end loop;
+    end loop;
+
+    return rom_v;
+  end function build_qc_rom;
+
+  signal rom_row_block_s : natural range 0 to LDPC_QC_ROW_BLOCKS - 1 := 0;
+  signal rom_storage_s : t_qc_rom_image := build_qc_rom;
+  signal rom_data_s : t_qc_row_data := (others => '0');
+
+  attribute rom_style : string;
+  attribute rom_style of rom_storage_s : signal is C_LDPC_QC_ROM_STYLE;
+begin
+  rom_read_process : process (clock_i)
+  begin
+    if rising_edge(clock_i) then
+      rom_data_s <= rom_storage_s(rom_row_block_s);
+    end if;
+  end process rom_read_process;
 
   core_inst : entity work.ldpc_qc_encoder_core
     generic map (

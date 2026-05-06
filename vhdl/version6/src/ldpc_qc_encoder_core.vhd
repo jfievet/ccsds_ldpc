@@ -19,7 +19,7 @@ entity ldpc_qc_encoder_core is
     data_en_i        : in std_logic;
     data_start_i     : in std_logic;
     rom_row_block_o  : out natural range 0 to G_LDPC_QC_ROW_BLOCKS - 1;
-    rom_data_i       : in t_std_logic_vector_array(0 to G_LDPC_QC_COL_BLOCKS - 1)(G_LDPC_QC_BLOCK_SIZE - 1 downto 0);
+    rom_data_i       : in std_logic_vector((G_LDPC_QC_COL_BLOCKS * G_LDPC_QC_BLOCK_SIZE) - 1 downto 0);
     data_o           : out std_logic;
     data_en_o        : out std_logic;
     data_start_o     : out std_logic;
@@ -29,14 +29,39 @@ entity ldpc_qc_encoder_core is
 end entity ldpc_qc_encoder_core;
 
 architecture rtl of ldpc_qc_encoder_core is
+  subtype t_qc_block is std_logic_vector(G_LDPC_QC_BLOCK_SIZE - 1 downto 0);
+  type t_qc_block_array is array (0 to G_LDPC_QC_COL_BLOCKS - 1) of t_qc_block;
+
   function rotate_block_left(block_i : std_logic_vector) return std_logic_vector is
   begin
     return block_i(block_i'length - 2 downto 0) & block_i(block_i'length - 1);
   end function rotate_block_left;
 
-  signal shift_registers_s : t_std_logic_vector_array(0 to G_LDPC_QC_COL_BLOCKS - 1)(G_LDPC_QC_BLOCK_SIZE - 1 downto 0) := (others => (others => '0'));
-  signal parity_blocks_s : t_std_logic_vector_array(0 to G_LDPC_QC_COL_BLOCKS - 1)(G_LDPC_QC_BLOCK_SIZE - 1 downto 0) := (others => (others => '0'));
+  function next_row_block(row_block_i : natural) return natural is
+  begin
+    if row_block_i = G_LDPC_QC_ROW_BLOCKS - 1 then
+      return 0;
+    end if;
 
+    return row_block_i + 1;
+  end function next_row_block;
+
+  function rom_block_at(
+    rom_data_i     : std_logic_vector;
+    block_index_i  : natural
+  ) return std_logic_vector is
+    variable lsb_v : natural;
+    variable block_v : std_logic_vector(G_LDPC_QC_BLOCK_SIZE - 1 downto 0);
+  begin
+    lsb_v := block_index_i * G_LDPC_QC_BLOCK_SIZE;
+    block_v := rom_data_i(lsb_v + G_LDPC_QC_BLOCK_SIZE - 1 downto lsb_v);
+    return block_v;
+  end function rom_block_at;
+
+  signal shift_registers_s : t_qc_block_array := (others => (others => '0'));
+  signal parity_blocks_s : t_qc_block_array := (others => (others => '0'));
+
+  signal rom_row_block_request_s : natural range 0 to G_LDPC_QC_ROW_BLOCKS - 1 := 0;
   signal input_row_block_s : natural range 0 to G_LDPC_QC_ROW_BLOCKS - 1 := 0;
   signal input_local_index_s : natural range 0 to G_LDPC_QC_BLOCK_SIZE - 1 := 0;
   signal input_bit_count_s : natural range 0 to G_LDPC_K := 0;
@@ -56,7 +81,14 @@ architecture rtl of ldpc_qc_encoder_core is
   signal data_message_o_s : std_logic := '0';
   signal data_parity_o_s : std_logic := '0';
 begin
-  rom_row_block_o <= input_row_block_s;
+  rom_row_block_request_s <= next_row_block(input_row_block_s)
+    when data_en_i = '1'
+      and data_start_i = '0'
+      and input_bit_count_s /= G_LDPC_K - 1
+      and input_local_index_s = G_LDPC_QC_BLOCK_SIZE - 1
+    else input_row_block_s;
+
+  rom_row_block_o <= rom_row_block_request_s;
   data_o <= data_o_s;
   data_en_o <= data_en_o_s;
   data_start_o <= data_start_o_s;
@@ -137,13 +169,13 @@ begin
 
             if data_i = '1' then
               for col_index in 0 to G_LDPC_QC_COL_BLOCKS - 1 loop
-                parity_blocks_s(col_index) <= rom_data_i(col_index);
-                shift_registers_s(col_index) <= rotate_block_left(rom_data_i(col_index));
+                parity_blocks_s(col_index) <= rom_block_at(rom_data_i, col_index);
+                shift_registers_s(col_index) <= rotate_block_left(rom_block_at(rom_data_i, col_index));
               end loop;
             else
               parity_blocks_s <= (others => (others => '0'));
               for col_index in 0 to G_LDPC_QC_COL_BLOCKS - 1 loop
-                shift_registers_s(col_index) <= rotate_block_left(rom_data_i(col_index));
+                shift_registers_s(col_index) <= rotate_block_left(rom_block_at(rom_data_i, col_index));
               end loop;
             end if;
 
@@ -158,8 +190,8 @@ begin
             if data_i = '1' then
               if input_local_index_s = 0 then
                 for col_index in 0 to G_LDPC_QC_COL_BLOCKS - 1 loop
-                  parity_blocks_s(col_index) <= parity_blocks_s(col_index) xor rom_data_i(col_index);
-                  shift_registers_s(col_index) <= rotate_block_left(rom_data_i(col_index));
+                  parity_blocks_s(col_index) <= parity_blocks_s(col_index) xor rom_block_at(rom_data_i, col_index);
+                  shift_registers_s(col_index) <= rotate_block_left(rom_block_at(rom_data_i, col_index));
                 end loop;
               else
                 for col_index in 0 to G_LDPC_QC_COL_BLOCKS - 1 loop
@@ -170,7 +202,7 @@ begin
             else
               if input_local_index_s = 0 then
                 for col_index in 0 to G_LDPC_QC_COL_BLOCKS - 1 loop
-                  shift_registers_s(col_index) <= rotate_block_left(rom_data_i(col_index));
+                  shift_registers_s(col_index) <= rotate_block_left(rom_block_at(rom_data_i, col_index));
                 end loop;
               else
                 for col_index in 0 to G_LDPC_QC_COL_BLOCKS - 1 loop

@@ -105,7 +105,7 @@ CONFIGS = [
     },
 ]
 
-SUPPORTED_SELECTIONS = {1, 2, 4, 5, 7, 8}
+SUPPORTED_SELECTIONS = {1, 2, 3, 4, 5, 6, 7, 8, 9}
 
 
 def load_octave_sparse_text_mat(

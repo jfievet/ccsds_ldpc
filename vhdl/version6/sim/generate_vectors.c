@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "qc_encoder.h"
 
 typedef struct {
   int selection;
@@ -344,31 +345,50 @@ static void write_vhdl_vectors_package(const t_config *config, const uint8_t *me
   fclose(handle);
 }
 
-static void generate_one(const t_config *config) {
-  int block_words = (config->block_size + 63) / 64;
-  int first_row_word_count = config->row_blocks * config->col_blocks * block_words;
-  uint64_t *first_rows = checked_calloc((size_t)first_row_word_count, sizeof(uint64_t));
-  uint8_t *message_bits = checked_calloc((size_t)config->info_length, sizeof(uint8_t));
-  uint8_t *codeword_bits = checked_calloc((size_t)config->transmitted_length, sizeof(uint8_t));
-  char message_path[256];
-  char codeword_path[256];
+static void generate_one(const t_config *config)
+{
+    int block_words = (config->block_size + 63) / 64;
+    int first_row_word_count =
+        config->row_blocks * config->col_blocks * block_words;
 
-  load_first_rows(config, first_rows, block_words);
-  build_message(config, message_bits);
-  build_codeword(config, message_bits, first_rows, codeword_bits);
+    uint64_t *first_rows =
+        checked_calloc((size_t)first_row_word_count, sizeof(uint64_t));
 
-  snprintf(message_path, sizeof(message_path), "message_ldpc_encoder_%s.txt", config->suffix);
-  snprintf(codeword_path, sizeof(codeword_path), "encoded_frame_ldpc_encoder_%s.txt", config->suffix);
-  write_rom_package(config, first_rows);
-  write_bit_file(message_path, message_bits, config->info_length);
-  write_bit_file(codeword_path, codeword_bits, config->transmitted_length);
-  write_vhdl_vectors_package(config, message_bits, codeword_bits);
+    uint8_t *message_bits =
+        checked_calloc((size_t)config->info_length, sizeof(uint8_t));
 
-  printf("Generated vectors for %s\n", config->suffix);
+    uint8_t *codeword_bits =
+        checked_calloc((size_t)config->transmitted_length, sizeof(uint8_t));
 
-  free(first_rows);
-  free(message_bits);
-  free(codeword_bits);
+    char message_path[256];
+    char codeword_path[256];
+
+    /* Keep this if you still need VHDL ROM generation */
+    load_first_rows(config, first_rows, block_words);
+
+    build_message(config, message_bits);
+
+    const qc_encoder_config *qc_cfg =
+        qc_encoder_get_config(config->selection);
+
+    qc_encoder_encode(qc_cfg, message_bits, codeword_bits);
+
+    snprintf(message_path, sizeof(message_path),
+             "message_ldpc_encoder_%s.txt", config->suffix);
+
+    snprintf(codeword_path, sizeof(codeword_path),
+             "encoded_frame_ldpc_encoder_%s.txt", config->suffix);
+
+    write_rom_package(config, first_rows);
+    write_bit_file(message_path, message_bits, config->info_length);
+    write_bit_file(codeword_path, codeword_bits, config->transmitted_length);
+    write_vhdl_vectors_package(config, message_bits, codeword_bits);
+
+    printf("Generated vectors for %s\n", config->suffix);
+
+    free(first_rows);
+    free(message_bits);
+    free(codeword_bits);
 }
 
 int main(int argc, char **argv) {

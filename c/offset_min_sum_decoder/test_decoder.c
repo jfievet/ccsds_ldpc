@@ -1,76 +1,98 @@
+
 #include "decoder.h"
 #include "qc_encoder.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
 #include <time.h>
+#include <string.h>
 
+typedef struct {
+    int selection;
+    const char *desc;
+    const char *h_matrix_path;
+} code_option_t;
 
-int main(void)
+// Table of all 9 CCSDS code rate/block size options
+static const code_option_t code_options[9] = {
+    {1,  "1: 1k, rate 1/2",   "../build_h/H_1_2_1024.mat"},
+    {4,  "2: 1k, rate 2/3",   "../build_h/H_2_3_1024.mat"},
+    {7,  "3: 1k, rate 4/5",   "../build_h/H_4_5_1024.mat"},
+    {2,  "4: 4k, rate 1/2",   "../build_h/H_1_2_4096.mat"},
+    {5,  "5: 4k, rate 2/3",   "../build_h/H_2_3_4096.mat"},
+    {8,  "6: 4k, rate 4/5",   "../build_h/H_4_5_4096.mat"},
+    {3,  "7: 16k, rate 1/2",  "../build_h/H_1_2_16384.mat"},
+    {6,  "8: 16k, rate 2/3",  "../build_h/H_2_3_16384.mat"},
+    {9,  "9: 16k, rate 4/5",  "../build_h/H_4_5_16384.mat"}
+};
+
+int main(int argc, char *argv[])
 {
-    //
-    // CCSDS selection:
-    // 1 = rate 1/2, 1024
-    //
+    int option = 0;
+    if(argc > 1) {
+        option = atoi(argv[1]);
+    }
 
-    const int selection = 1;
+    // Show menu if no valid argument
+    if(option < 1 || option > 9) {
+        printf("Select CCSDS code rate and block size:\n");
+        for(int i = 0; i < 9; ++i) {
+            printf("  %s\n", code_options[i].desc);
+        }
+        printf("Enter option (1-9): ");
+        fflush(stdout);
+        if(scanf("%d", &option) != 1 || option < 1 || option > 9) {
+            printf("Invalid selection.\n");
+            return -1;
+        }
+    }
 
-    const qc_encoder_config *config =
-        qc_encoder_get_config(selection);
-
-    if(!config)
-    {
-        printf("invalid encoder config\n");
+    const code_option_t *opt = &code_options[option-1];
+    const qc_encoder_config *config = qc_encoder_get_config(opt->selection);
+    if(!config) {
+        printf("Invalid encoder config for selection %d\n", opt->selection);
         return -1;
     }
 
-    //Init RNG
     srand((unsigned)time(NULL));
 
-    //
-    // Load matching H matrix
-    //
-
     ldpc_matrix_t H;
-
-    if(ldpc_load_mat(
-        "../build_h/H_1_2_1024.mat",
-        &H))
-    {
+    if(ldpc_load_mat(opt->h_matrix_path, &H)) {
+        printf("Failed to load H matrix: %s\n", opt->h_matrix_path);
         return -1;
     }
+    printf("Loaded H matrix: %s\n", opt->h_matrix_path);
+    printf("Selected: %s\n", opt->desc);
 
-    printf("Loaded H matrix\n");
+    // Debug: print buffer sizes and check consistency
+    printf("info_length=%d, transmitted_length=%d, H.N=%d, H.M=%d\n",
+        config->info_length, config->transmitted_length, H.N, H.M);
+    if (config->transmitted_length > H.N) {
+        printf("ERROR: transmitted_length > H.N!\n");
+        return -1;
+    }
+    if (config->info_length > config->transmitted_length) {
+        printf("ERROR: info_length > transmitted_length!\n");
+        return -1;
+    }
 
     //
     // Allocate message
     //
 
-    uint8_t *message =
-        malloc(config->info_length);
 
-    //
-    // Allocate transmitted codeword
-    //
+    uint8_t *message = malloc(config->info_length);
+    uint8_t *tx_codeword = malloc(config->transmitted_length);
+    float *llr = malloc(H.N * sizeof(float));
+    uint8_t *decoded_bits = malloc(H.N);
 
-    uint8_t *tx_codeword =
-        malloc(config->transmitted_length);
-
-    //
-    // Full decoder-size LLRs
-    //
-
-    float *llr =
-        malloc(H.N * sizeof(float));
-
-    //
-    // Decoder output
-    //
-
-    uint8_t *decoded_bits =
-        malloc(H.N);
+    if (!message || !tx_codeword || !llr || !decoded_bits) {
+        printf("ERROR: Memory allocation failed!\n");
+        free(message); free(tx_codeword); free(llr); free(decoded_bits);
+        ldpc_free(&H);
+        return -1;
+    }
 
     //
     // Random message

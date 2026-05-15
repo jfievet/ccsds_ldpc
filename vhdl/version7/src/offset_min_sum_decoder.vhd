@@ -300,6 +300,9 @@ begin
         min1_val <= (others => '0');
         min2_val <= (others => '0');
         min1_idx <= (others => '0');
+        min1_idx_d1 <= (others => '0');
+        min1_idx_d2 <= (others => '0');
+        min1_idx_d3 <= (others => '0');
 
         min1_sub <= (others => '0');
         min2_sub <= (others => '0');
@@ -369,6 +372,7 @@ begin
               v2c_sign_d3 <= (others => '0');
               min1_idx_d1 <= (others => '0');
               min1_idx_d2 <= (others => '0');
+              min1_idx_d3 <= (others => '0');
               edge_v_d11 <= (others => '0');
               edge_v_d12 <= (others => '0');
               llr_new_q_d1 <= (others => (others => '0'));
@@ -597,6 +601,7 @@ begin
             edge_v_d4 <= edge_v_d3;
             row_cnt_d4 <= row_cnt_d3;
             idx_vn_d4 <= idx_vn_d3;
+            min1_idx_d1 <= min1_idx;
 
             -- Pipe6
             if pipe_en(6) = '1' then
@@ -621,6 +626,7 @@ begin
             idx_vn_d5 <= idx_vn_d4;
             sign_product_d1 <= sign_product;
             v2c_sign_d1 <= v2c_sign;
+            min1_idx_d2 <= min1_idx_d1;
 
             -- Pipe7
             if pipe_en(7) = '1' then
@@ -645,6 +651,7 @@ begin
             idx_vn_d6 <= idx_vn_d5;
             sign_product_d2 <= sign_product_d1;
             v2c_sign_d2 <= v2c_sign_d1; 
+            min1_idx_d3 <= min1_idx_d2;
 
 
             -- Pipe8 : magnitude selection
@@ -652,7 +659,7 @@ begin
 
               for i in 0 to 5 loop
                 if edge_v_d5(i) = '1' then
-                  if min1_idx = to_unsigned(i,3) then
+                  if min1_idx_d3 = to_unsigned(i,3) then
                     mag_sel(i) <= min2_off;
                   else
                     mag_sel(i) <= min1_off;

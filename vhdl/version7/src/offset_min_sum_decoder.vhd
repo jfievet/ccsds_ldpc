@@ -249,6 +249,8 @@ begin
   variable v_min1_idx : unsigned(2 downto 0) := (others => '0');
   variable v_row_parity_dbg : std_logic;
   variable v_parity_in : std_logic;
+  variable v_sign : std_logic;
+  
   begin
     if rising_edge(clk_i) then
       if rst_i = '1' then
@@ -590,6 +592,8 @@ begin
               v_min2_val := (others => '1');
               v_min1_idx := (others => '0');
 
+              v_sign := '0';
+
               for i in 0 to 5 loop
 
                 if v2c_abs(i) < v_min1_val then
@@ -603,17 +607,13 @@ begin
                 min2_val <= v_min2_val;
                 min1_val <= v_min1_val;
                 min1_idx <= v_min1_idx;
+
+                -- signs xor
+                v_sign := v_sign xor v2c_sign(i);
               
               end loop;
+              sign_product <= v_sign;
 
-
-              -- signs xor
-              sign_product <= v2c_sign(0) xor
-                              v2c_sign(1) xor
-                              v2c_sign(2) xor
-                              v2c_sign(3) xor
-                              v2c_sign(4) xor
-                              v2c_sign(5);
             end if;
             edge_v_d4 <= edge_v_d3;
             row_cnt_d4 <= row_cnt_d3;

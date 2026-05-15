@@ -612,7 +612,7 @@ begin
                 end if;
 
               end loop;
-              
+
               min1_val <= v_min1_val;
               min2_val <= v_min2_val;
               min1_idx <= v_min1_idx;
@@ -791,19 +791,19 @@ begin
 
               ram1_addra <= std_logic_vector(idx_vn_d10(0));
               ram1_dia   <= std_logic_vector(llr_new_q(0));
-              ram1_wea   <= edge_v_d10(2);
+              ram1_wea   <= edge_v_d10(0);
 
               ram1_addrb <= std_logic_vector(idx_vn_d10(1));
               ram1_dib   <= std_logic_vector(llr_new_q(1));
-              ram1_web   <= edge_v_d10(3);
+              ram1_web   <= edge_v_d10(1);
 
               ram2_addra <= std_logic_vector(idx_vn_d10(0));
               ram2_dia   <= std_logic_vector(llr_new_q(0));
-              ram2_wea   <= edge_v_d10(4);
+              ram2_wea   <= edge_v_d10(0);
 
               ram2_addrb <= std_logic_vector(idx_vn_d10(1));
               ram2_dib   <= std_logic_vector(llr_new_q(1));
-              ram2_web   <= edge_v_d10(5);
+              ram2_web   <= edge_v_d10(1);
 
               -- DEBUG CHECK
               v_row_parity_dbg := '0';
@@ -836,11 +836,11 @@ begin
 
               ram0_addra <= std_logic_vector(idx_vn_d11(2));
               ram0_dia   <= std_logic_vector(llr_new_q_d1(2));
-              ram0_wea   <= edge_v_d11(0);
+              ram0_wea   <= edge_v_d11(2);
 
               ram0_addrb <= std_logic_vector(idx_vn_d11(3));
               ram0_dib   <= std_logic_vector(llr_new_q_d1(3));
-              ram0_web   <= edge_v_d11(1);
+              ram0_web   <= edge_v_d11(3);
 
               ram1_addra <= std_logic_vector(idx_vn_d11(2));
               ram1_dia   <= std_logic_vector(llr_new_q_d1(2));
@@ -852,11 +852,11 @@ begin
 
               ram2_addra <= std_logic_vector(idx_vn_d11(2));
               ram2_dia   <= std_logic_vector(llr_new_q_d1(2));
-              ram2_wea   <= edge_v_d11(4);
+              ram2_wea   <= edge_v_d11(2);
 
               ram2_addrb <= std_logic_vector(idx_vn_d11(3));
               ram2_dib   <= std_logic_vector(llr_new_q_d1(3));
-              ram2_web   <= edge_v_d11(5);
+              ram2_web   <= edge_v_d11(3);
 
             else
 
@@ -879,19 +879,19 @@ begin
 
               ram0_addra <= std_logic_vector(idx_vn_d12(4));
               ram0_dia   <= std_logic_vector(llr_new_q_d2(4));
-              ram0_wea   <= edge_v_d12(0);
+              ram0_wea   <= edge_v_d12(4);
 
               ram0_addrb <= std_logic_vector(idx_vn_d12(5));
               ram0_dib   <= std_logic_vector(llr_new_q_d2(5));
-              ram0_web   <= edge_v_d12(1);
+              ram0_web   <= edge_v_d12(5);
 
               ram1_addra <= std_logic_vector(idx_vn_d12(4));
               ram1_dia   <= std_logic_vector(llr_new_q_d2(4));
-              ram1_wea   <= edge_v_d12(2);
+              ram1_wea   <= edge_v_d12(4);
 
               ram1_addrb <= std_logic_vector(idx_vn_d12(5));
               ram1_dib   <= std_logic_vector(llr_new_q_d2(5));
-              ram1_web   <= edge_v_d12(3);
+              ram1_web   <= edge_v_d12(5);
 
               ram2_addra <= std_logic_vector(idx_vn_d12(4));
               ram2_dia   <= std_logic_vector(llr_new_q_d2(4));

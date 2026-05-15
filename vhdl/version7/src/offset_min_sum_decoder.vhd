@@ -216,6 +216,7 @@ signal idx_vn_d12 : idx6_arr := (others => (others => '0'));
   signal row_cnt_d1   : unsigned(C_ADDR_W_M-1 downto 0) := (others => '0');
   signal llr_rd : llr6_arr := (others => (others => '0'));
   signal v2c      : wide6_arr := (others => (others => '0'));
+  signal v2c_d1, v2c_d2, v2c_d3, v2c_d4, v2c_d5, v2c_d6, v2c_d7 : wide6_arr := (others => (others => '0'));
   signal v2c_abs  : abs6_arr := (others => (others => '0'));
   signal v2c_sign : bit6_arr := (others => '0');
   signal min1_val, min2_val : abs_s := (others => '0');
@@ -285,6 +286,13 @@ begin
         edge_v_d7   <= (others => '0');
 
         v2c         <= (others => (others => '0'));
+        v2c_d1      <= (others => (others => '0'));
+        v2c_d2      <= (others => (others => '0'));
+        v2c_d3      <= (others => (others => '0'));
+        v2c_d4      <= (others => (others => '0'));
+        v2c_d5      <= (others => (others => '0'));
+        v2c_d6      <= (others => (others => '0'));
+        v2c_d7      <= (others => (others => '0'));
         v2c_abs     <= (others => (others => '0'));
         v2c_sign    <= (others => '0');
 
@@ -353,6 +361,13 @@ begin
               for i in 0 to 5 loop
                 v2c(i) <= (others=>'0');
               end loop;
+              v2c_d1 <= (others => (others => '0'));
+              v2c_d2 <= (others => (others => '0'));
+              v2c_d3 <= (others => (others => '0'));
+              v2c_d4 <= (others => (others => '0'));
+              v2c_d5 <= (others => (others => '0'));
+              v2c_d6 <= (others => (others => '0'));
+              v2c_d7 <= (others => (others => '0'));
               min1_val <= (others => '1');  -- max possible
               min2_val <= (others => '1');
               min1_idx <= (others => '0');
@@ -537,6 +552,7 @@ begin
             edge_v_d2 <= edge_v_d1;
             row_cnt_d3 <= row_cnt_d2;
             idx_vn_d2 <= idx_vn_d1;
+            v2c_d1 <= v2c;
 
             --Pipe 4
             --Calculate ABS and sign
@@ -563,6 +579,7 @@ begin
             edge_v_d3 <= edge_v_d2;
             row_cnt_d3 <= row_cnt_d2;
             idx_vn_d3 <= idx_vn_d2;
+            v2c_d2 <= v2c_d1;
 
             -- Pipe5
             -- Find min1 min2 and index
@@ -602,6 +619,7 @@ begin
             row_cnt_d4 <= row_cnt_d3;
             idx_vn_d4 <= idx_vn_d3;
             min1_idx_d1 <= min1_idx;
+            v2c_d3 <= v2c_d2;
 
             -- Pipe6
             if pipe_en(6) = '1' then
@@ -627,6 +645,7 @@ begin
             sign_product_d1 <= sign_product;
             v2c_sign_d1 <= v2c_sign;
             min1_idx_d2 <= min1_idx_d1;
+            v2c_d4 <= v2c_d3;
 
             -- Pipe7
             if pipe_en(7) = '1' then
@@ -652,6 +671,7 @@ begin
             sign_product_d2 <= sign_product_d1;
             v2c_sign_d2 <= v2c_sign_d1; 
             min1_idx_d3 <= min1_idx_d2;
+            v2c_d5 <= v2c_d4;
 
 
             -- Pipe8 : magnitude selection
@@ -675,6 +695,7 @@ begin
             idx_vn_d7 <= idx_vn_d6;
             sign_product_d3 <= sign_product_d2;
             v2c_sign_d3 <= v2c_sign_d2; 
+            v2c_d6 <= v2c_d5;
 
             -- pipe 9
             --New sign and apply to magnitude
@@ -696,6 +717,7 @@ begin
             row_cnt_d9 <= row_cnt_d8;
             edge_v_d8 <= edge_v_d7;
             idx_vn_d8 <= idx_vn_d7;
+            v2c_d7 <= v2c_d6;
 
             -- pipe 10
             if pipe_en(10) = '1' then
@@ -713,7 +735,7 @@ begin
 
               -- Compute new LLR
               for i in 0 to 5 loop
-                llr_new(i) <= v2c(i) + resize(msg_new(i), llr_wide_s'length);
+                llr_new(i) <= v2c_d7(i) + resize(msg_new(i), llr_wide_s'length);
               end loop;
 
             end if; --end pipe10

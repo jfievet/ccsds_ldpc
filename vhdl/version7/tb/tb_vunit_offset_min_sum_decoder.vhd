@@ -58,6 +58,28 @@ architecture tb of tb_offset_min_sum_decoder is
     file_close(f);
   end procedure;
 
+    procedure drive_null_frame(
+    signal iter_cfg_o   : out std_logic_vector(7 downto 0);
+    signal data_start_o : out std_logic;
+    signal data_o       : out std_logic_vector(5 downto 0);
+    signal data_valid_o : out std_logic;
+    signal clk_i        : in  std_logic;
+    constant iters      : in  integer
+  ) is
+  begin
+    iter_cfg_o <= std_logic_vector(to_unsigned(iters, 8));
+    data_start_o <= '1';
+    wait until rising_edge(clk_i);
+    data_start_o <= '0';
+
+    for i in 0 to 2047 loop
+      data_o <= "011111";
+      data_valid_o <= '1';
+      wait until rising_edge(clk_i);
+    end loop;
+    data_valid_o <= '0';
+  end procedure;
+
 begin
   clk <= not clk after C_CLK_PERIOD/2;
 
@@ -82,7 +104,7 @@ begin
     variable exp : std_logic;
   begin
     test_runner_setup(runner, runner_cfg);
-    if run("main") then
+    if run("test_001_main") then
         step <= 0;
         rst <= '1';
         wait for 100 ns;
@@ -106,7 +128,7 @@ begin
 
         step <= 2;
         drive_frame(iter_cfg_i, data_start_i, data_i, data_valid_i, clk, "../../../tb/vectors/llr_chain.txt", 5);
-        wait for 0,1 ms;
+        wait for 0.5 ms;
 --    file_open(fbits, "../tb/vectors/bits_chain_it5.txt", read_mode);
 --    --wait until rising_edge(clk) and data_start_o = '1';
 --    for i in 0 to 1023 loop
@@ -132,6 +154,20 @@ begin
 --    step <= 4;
 --    report "TB PASSED" severity note;
 --    wait;
+    end if;
+
+    if run("test_002_all_zeros") then
+        step <= 0;
+        rst <= '1';
+        wait for 100 ns;
+        wait until rising_edge(clk);
+        rst <= '0';
+        wait until rising_edge(clk);
+
+        step <= 2;
+        drive_null_frame(iter_cfg_i, data_start_i, data_i, data_valid_i, clk, 5);
+        wait for 0.5 ms;
+
     end if;
     test_runner_cleanup(runner);
     wait;

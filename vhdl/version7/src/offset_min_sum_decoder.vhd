@@ -596,22 +596,26 @@ begin
 
               for i in 0 to 5 loop
 
-                if v2c_abs(i) < v_min1_val then
-                  v_min2_val := v_min1_val;
-                  v_min1_val := v2c_abs(i);
-                  v_min1_idx := to_unsigned(i,3);
-                elsif v2c_abs(i) < v_min2_val then
-                  v_min2_val := v2c_abs(i);
+                if edge_v_d3(i) = '1' then
+
+                  if v2c_abs(i) < v_min1_val then
+                    v_min2_val := v_min1_val;
+                    v_min1_val := v2c_abs(i);
+                    v_min1_idx := to_unsigned(i,3);
+
+                  elsif v2c_abs(i) < v_min2_val then
+                    v_min2_val := v2c_abs(i);
+                  end if;
+
+                  v_sign := v_sign xor v2c_sign(i);
+
                 end if;
 
-                min2_val <= v_min2_val;
-                min1_val <= v_min1_val;
-                min1_idx <= v_min1_idx;
-
-                -- signs xor
-                v_sign := v_sign xor v2c_sign(i);
-              
               end loop;
+              
+              min1_val <= v_min1_val;
+              min2_val <= v_min2_val;
+              min1_idx <= v_min1_idx;
               sign_product <= v_sign;
 
             end if;

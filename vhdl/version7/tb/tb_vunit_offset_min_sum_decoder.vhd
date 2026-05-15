@@ -8,7 +8,8 @@ context vunit_lib.vunit_context;
 
 entity tb_offset_min_sum_decoder is
   generic (
-    runner_cfg : string
+    runner_cfg : string;
+    vector_dir : string := "../tb/vectors"
   );
 end entity;
 
@@ -127,7 +128,7 @@ begin
 --    file_close(fbits);
 
         step <= 2;
-        drive_frame(iter_cfg_i, data_start_i, data_i, data_valid_i, clk, "../../../tb/vectors/llr_chain.txt", 5);
+        drive_frame(iter_cfg_i, data_start_i, data_i, data_valid_i, clk, vector_dir & "/llr_chain.txt", 5);
         wait for 0.5 ms;
 --    file_open(fbits, "../tb/vectors/bits_chain_it5.txt", read_mode);
 --    --wait until rising_edge(clk) and data_start_o = '1';

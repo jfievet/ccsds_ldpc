@@ -30,6 +30,18 @@ architecture tb of tb_offset_min_sum_decoder is
 
   signal step          : integer:=0;
 
+  -- pattern checker signals
+  type slv32_t is array (0 to 31) of std_logic;
+  signal history_s      : slv32_t := (others => '0');
+  signal wr_ptr_s       : integer range 0 to 31 := 0;
+  signal bit_cnt_s      : integer := 0;
+  signal err_cnt_s      : integer := 0;
+  signal check_cnt_s    : integer := 0;
+
+  signal prev_bit_s     : std_logic := '0';
+
+  signal in_frame_s     : std_logic := '0';
+
   procedure drive_frame(
     signal iter_cfg_o   : out std_logic_vector(7 downto 0);
     signal data_start_o : out std_logic;
@@ -130,6 +142,10 @@ begin
         step <= 2;
         drive_frame(iter_cfg_i, data_start_i, data_i, data_valid_i, clk, vector_dir & "/llr_chain.txt", 5);
         wait for 0.5 ms;
+
+        info("Bits checked : " & integer'image(check_cnt_s));
+        info("Errors       : " & integer'image(err_cnt_s));
+        
 --    file_open(fbits, "../tb/vectors/bits_chain_it5.txt", read_mode);
 --    --wait until rising_edge(clk) and data_start_o = '1';
 --    for i in 0 to 1023 loop
@@ -173,4 +189,93 @@ begin
     test_runner_cleanup(runner);
     wait;
   end process;
+
+
+p_pattern_checker : process(clk)
+
+begin
+
+  if rising_edge(clk) then
+
+    if rst = '1' then
+
+      wr_ptr_s    <= 0;
+      bit_cnt_s   <= 0;
+      err_cnt_s   <= 0;
+      check_cnt_s <= 0;
+
+      prev_bit_s  <= '0';
+
+      in_frame_s  <= '0';
+
+      for i in 0 to 31 loop
+        history_s(i) <= '0';
+      end loop;
+
+    else
+
+      ----------------------------------------------------------------
+      -- Start frame
+      ----------------------------------------------------------------
+      if data_start_o = '1' then
+
+        wr_ptr_s    <= 0;
+        bit_cnt_s   <= 0;
+        err_cnt_s   <= 0;
+        check_cnt_s <= 0;
+
+        in_frame_s  <= '1';
+
+      end if;
+
+      ----------------------------------------------------------------
+      -- Data checking
+      ----------------------------------------------------------------
+      if data_valid_o = '1' then
+
+        -- après 32 bits on commence les comparaisons
+        if bit_cnt_s >= 32 then
+
+          prev_bit_s <= history_s(wr_ptr_s);
+
+          check_cnt_s <= check_cnt_s + 1;
+
+          if data_o /= history_s(wr_ptr_s) then
+            err_cnt_s <= err_cnt_s + 1;
+          end if;
+
+        end if;
+
+        -- update circular buffer
+        history_s(wr_ptr_s) <= data_o;
+
+        if wr_ptr_s = 31 then
+          wr_ptr_s <= 0;
+        else
+          wr_ptr_s <= wr_ptr_s + 1;
+        end if;
+
+        bit_cnt_s <= bit_cnt_s + 1;
+
+      end if;
+
+      ----------------------------------------------------------------
+      -- End frame
+      ----------------------------------------------------------------
+      if in_frame_s = '1'
+      and data_valid_o = '0'
+      and bit_cnt_s /= 0 then
+
+        in_frame_s <= '0';
+
+      end if;
+
+    end if;
+
+  end if;
+
+end process;
+
+
+  
 end architecture;
